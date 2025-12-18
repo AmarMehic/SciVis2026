@@ -1,0 +1,16 @@
+name: wind-viz
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - numpy
+  - xarray
+  - pandas
+  - matplotlib
+  - netCDF4
+  - dask
+  - boto3
+  - pip
+  - pip:
+      - meshio
+      - openvisuspy

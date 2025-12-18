@@ -1,0 +1,16 @@
+{
+  "name": "wind-globe",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite web",
+    "build": "vite build web",
+    "preview": "vite preview web"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  }
+}

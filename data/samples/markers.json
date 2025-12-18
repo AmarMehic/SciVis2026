@@ -1,0 +1,204 @@
+[
+  {
+    "color": "#f7365a",
+    "size": 3.1,
+    "modelUrl": "/models/tropical-leaf/source/fs-metal.glb",
+    "speed": 0.05,
+    "path": [
+      {
+        "t": 0.0,
+        "lat": 5,
+        "lon": -60,
+        "alt": 0.08
+      },
+      {
+        "t": 0.25,
+        "lat": 18,
+        "lon": -30,
+        "alt": 0.1
+      },
+      {
+        "t": 0.5,
+        "lat": 20,
+        "lon": 10,
+        "alt": 0.12
+      },
+      {
+        "t": 0.75,
+        "lat": 12,
+        "lon": 50,
+        "alt": 0.1
+      },
+      {
+        "t": 1.0,
+        "lat": 5,
+        "lon": -60,
+        "alt": 0.08
+      }
+    ]
+  },
+  {
+    "color": "#6bff8a",
+    "size": 2.8,
+    "modelUrl": "/models/tropical-leaf/source/fs-metal.glb",
+    "speed": 0.04,
+    "path": [
+      {
+        "t": 0.0,
+        "lat": -20,
+        "lon": 60,
+        "alt": 0.05
+      },
+      {
+        "t": 0.2,
+        "lat": -10,
+        "lon": 100,
+        "alt": 0.09
+      },
+      {
+        "t": 0.4,
+        "lat": 5,
+        "lon": 130,
+        "alt": 0.11
+      },
+      {
+        "t": 0.6,
+        "lat": 0,
+        "lon": 170,
+        "alt": 0.09
+      },
+      {
+        "t": 0.8,
+        "lat": -12,
+        "lon": 140,
+        "alt": 0.07
+      },
+      {
+        "t": 1.0,
+        "lat": -20,
+        "lon": 60,
+        "alt": 0.05
+      }
+    ]
+  },
+  {
+    "color": "#ffd95c",
+    "size": 2.8,
+    "modelUrl": "/models/tropical-leaf/source/fs-metal.glb",
+    "speed": 0.06,
+    "path": [
+      {
+        "t": 0.0,
+        "lat": 40,
+        "lon": 20,
+        "alt": 0.06
+      },
+      {
+        "t": 0.25,
+        "lat": 28,
+        "lon": -10,
+        "alt": 0.09
+      },
+      {
+        "t": 0.5,
+        "lat": 10,
+        "lon": -40,
+        "alt": 0.11
+      },
+      {
+        "t": 0.75,
+        "lat": 25,
+        "lon": -10,
+        "alt": 0.09
+      },
+      {
+        "t": 1.0,
+        "lat": 40,
+        "lon": 20,
+        "alt": 0.06
+      }
+    ]
+  },
+  {
+    "color": "#5cd4ff",
+    "size": 3.2,
+    "modelUrl": "/models/tropical-leaf/source/fs-metal.glb",
+    "speed": 0.05,
+    "path": [
+      {
+        "t": 0.0,
+        "lat": -10,
+        "lon": -160,
+        "alt": 0.05
+      },
+      {
+        "t": 0.2,
+        "lat": -5,
+        "lon": -130,
+        "alt": 0.08
+      },
+      {
+        "t": 0.4,
+        "lat": -15,
+        "lon": -100,
+        "alt": 0.1
+      },
+      {
+        "t": 0.6,
+        "lat": -25,
+        "lon": -120,
+        "alt": 0.09
+      },
+      {
+        "t": 0.8,
+        "lat": -20,
+        "lon": -150,
+        "alt": 0.07
+      },
+      {
+        "t": 1.0,
+        "lat": -10,
+        "lon": -160,
+        "alt": 0.05
+      }
+    ]
+  },
+  {
+    "color": "#d08bff",
+    "size": 3,
+    "modelUrl": "/models/tropical-leaf/source/fs-metal.glb",
+    "speed": 0.055,
+    "path": [
+      {
+        "t": 0.0,
+        "lat": 60,
+        "lon": -10,
+        "alt": 0.08
+      },
+      {
+        "t": 0.25,
+        "lat": 55,
+        "lon": -50,
+        "alt": 0.11
+      },
+      {
+        "t": 0.5,
+        "lat": 45,
+        "lon": -90,
+        "alt": 0.12
+      },
+      {
+        "t": 0.75,
+        "lat": 52,
+        "lon": -50,
+        "alt": 0.1
+      },
+      {
+        "t": 1.0,
+        "lat": 60,
+        "lon": -10,
+        "alt": 0.08
+      }
+    ]
+  }
+]
