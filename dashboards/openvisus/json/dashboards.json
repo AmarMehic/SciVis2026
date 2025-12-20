@@ -1,0 +1,43 @@
+{
+  "datasets": [
+    {
+      "id": "dyamond_geos_u_face0",
+      "label": "DYAMOND GEOS U face0",
+      "idx_url": "https://nsdf-climate3-origin.nationalresearchplatform.org:50098/nasa/nsdf/climate3/dyamond/GEOS/GEOS_U/u_face_{face}_depth_52_time_0_10269.idx",
+      "fields": [
+        "u"
+      ],
+      "default_time": 0,
+      "default_face": 0,
+      "default_resolution_drop": 6,
+      "description": "GEOS U wind on cubed-sphere faces 0–5. The {face} token selects the cube face; adjust resolution/time as needed."
+    },
+    {
+      "id": "dyamond_geos_atm",
+      "label": "DYAMOND GEOS atmosphere (wind)",
+      "idx_url": "https://REPLACE-ME/dyamond/geos_atm_face_{face}.idx",
+      "description": "C1440 GEOS atmosphere (7 km, 51 levels) used for SciVis 2026 Task 1 wind patterns. Replace idx_url with your bucket or NSDF endpoint; include {face} to switch cube faces.",
+      "fields": [
+        "U",
+        "V",
+        "W",
+        "P",
+        "T"
+      ],
+      "default_time": 0,
+      "default_face": 0,
+      "default_resolution_drop": 5
+    },
+    {
+      "id": "sample_2kbit1",
+      "label": "Connectivity test: 2kbit1 volume (public)",
+      "idx_url": "http://atlantis.sci.utah.edu/mod_visus?dataset=2kbit1/visus.idx",
+      "description": "Tiny public Visus dataset; keep around to verify OpenVisuspy + Panel wiring before hitting bigger cubes.",
+      "fields": [
+        "data"
+      ],
+      "default_time": 0,
+      "default_resolution_drop": 2
+    }
+  ]
+}

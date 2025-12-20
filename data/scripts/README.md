@@ -1,4 +1,4 @@
-Data prep scripts live here (fetch DYAMOND GEOS files, slice, precompute streamlines/paths/particles). Use the `wind-viz` conda env from `environment.yml`.
+Data prep scripts live here (fetch DYAMOND GEOS files, slice, precompute streamlines/paths/particles). Use the `sci-vis` conda env from `environment.yml`.
 
 - Keep raw downloads outside the repo; script inputs should point to local paths or buckets.
 - Emit downsampled JSON fixtures into `../samples/` that match the schemas in `docs/components.md`.
