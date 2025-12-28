@@ -72,8 +72,7 @@ cube = xr.Dataset(
         "V": (("face", "y", "x"), V[None, ...]),
     },
     coords={"face": [0], "y": np.arange(ny), "x": np.arange(nx)},
-    attrs={"source": "DYAMOND GEOS via OpenVisus",
-           "timestep": int(timestep), "level": int(level)},
+    attrs={"source": "DYAMOND GEOS via OpenVisus", "timestep": int(timestep), "level": int(level)},
 )
 out_path = pathlib.Path("notebooks/uv_cube_t0_z0.nc")
 out_path.parent.mkdir(parents=True, exist_ok=True)

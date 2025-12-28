@@ -7,6 +7,7 @@ base_url = "https://nsdf-climate3-origin.nationalresearchplatform.org:50098/nasa
 timestep = 0   # change if you want a different time
 level = 0      # vertical index 0..51 (52 levels)
 
+
 def read_face(var: str, face: int):
     url = f"{base_url}/GEOS_{var.upper()}/{var}_face_{face}_depth_52_time_0_10269.idx"
     ds = ov.LoadDataset(url)
@@ -29,6 +30,7 @@ def read_face(var: str, face: int):
     arr = np.squeeze(last)
     print(f"{var} face {face}: shape {arr.shape}, min/max {arr.min():.3f}/{arr.max():.3f}")
     return arr
+
 
 faces = []
 for face in range(6):
