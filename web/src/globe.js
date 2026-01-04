@@ -84,9 +84,17 @@ export function createGlobe(canvas) {
   }
   window.addEventListener("resize", onResize);
 
+  let autoRotate = true;
+
   const tick = (dt = 0) => {
-    globeGroup.rotation.y += 0.03 * dt;
+    if (autoRotate) {
+      globeGroup.rotation.y += 0.03 * dt;
+    }
   };
 
-  return { scene, camera, renderer, controls, globeRadius, assets, globeGroup, tick };
+  const setAutoRotate = (enabled) => {
+    autoRotate = enabled;
+  };
+
+  return { scene, camera, renderer, controls, globeRadius, assets, globeGroup, tick, canvas, setAutoRotate };
 }
