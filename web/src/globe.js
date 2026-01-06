@@ -17,17 +17,22 @@ export function createGlobe(canvas) {
   camera.position.set(0, 0, 4);
   scene.add(camera);
 
+  const globeRadius = 1.3;
+
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enablePan = false;
-  controls.enableZoom = false;
-  controls.minDistance = 4;
-  controls.maxDistance = 4;
+
+  // Allow zooming for close inspection
+  controls.enableZoom = true;
+  // Anything below (globeRadius + margin) risks clipping/entering the surface.
+  const minZoomDistance = globeRadius + 0.55;
+  const maxZoomDistance = 6.0;
+  controls.minDistance = minZoomDistance;
+  controls.maxDistance = maxZoomDistance;
 
   scene.add(new THREE.HemisphereLight(0x7fb7ff, 0x111622, 5));
   scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-
-  const globeRadius = 1.3;
 
   const assets = createAssetCache();
   assets.set("surfaceRadius", globeRadius);

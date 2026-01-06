@@ -26,6 +26,44 @@ Data prep scripts live here (fetch DYAMOND GEOS files, slice, precompute streaml
      ```
 4. Zaženi web: `npm run dev` in hard-reload; globe bere `uv_small.json` in riše tangentne vektorske črte.
 
+## Generiranje ve nivojev za web (Path A: 1 JSON na nivo)
+
+Web UI (slider) bere datoteke iz `web/public/data/wind/` v obliki `uv_level_XXX.json` in manifest `levels.json`.
+
+### 1) Hitri demo (placeholder leveli iz obstojeega lat/lon JSON)
+
+To je uporabno, e eli samo testirati multi-level exploration v UI, brez pravega 3D podvzorenja po nivojih.
+
+```bash
+python data/scripts/generate_wind_levels.py --mode placeholder --template-json data/samples/uv_small.json --levels 0-50 --out-dir web/public/data/wind
+```
+
+- Ustvari `uv_level_000.json` ... `uv_level_050.json`
+- Ustvari/posodobi `web/public/data/wind/levels.json`
+
+### 2) Pravi podatki (za vsak nivo ponovno zaeni cubed-sphere  sampler)
+
+Najprej pripravi 6 obrazov (primer):
+
+```bash
+python data/scripts/fetch_geos_faces.py
+```
+
+Nato generiraj nivoje (npr. 0-10) kot loene JSON datoteke za web:
+
+```bash
+python data/scripts/generate_wind_levels.py \
+  --mode cubed-sphere \
+  --inputs notebooks/geos_faces/uv_face0.nc notebooks/geos_faces/uv_face1.nc notebooks/geos_faces/uv_face2.nc notebooks/geos_faces/uv_face3.nc notebooks/geos_faces/uv_face4.nc notebooks/geos_faces/uv_face5.nc \
+  --var-u U --var-v V \
+  --time 0 \
+  --levels 0-10 \
+  --lon-res 360 --lat-res 181 \
+  --out-dir web/public/data/wind
+```
+
+Opomba: to je precej poasneje, ker za vsak nivo ponovno naredi nearest-neighbor mapping.
+
 ## Skripti
 
 - `fetch_geos_faces.py`: prenese GEOS U/V za obraz 0–5 iz uradnega OpenVisus endpointa in shrani `uv_face*.nc` (dimenzije face,y,x; atributi time/level).
