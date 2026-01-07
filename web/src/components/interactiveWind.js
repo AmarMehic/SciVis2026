@@ -20,14 +20,6 @@ function percentile(arr, p) {
   return a[i];
 }
 
-function lerpWrappedLon(a, b, t) {
-  let delta = b - a;
-  if (Math.abs(delta) > 180) {
-    delta += delta > 0 ? -360 : 360;
-  }
-  return a + delta * t;
-}
-
 export function createInteractiveWind({
   camera,
   renderer,
@@ -38,6 +30,8 @@ export function createInteractiveWind({
 }) {
   const group = new THREE.Group();
   const leafGroup = new THREE.Group();
+  const hitboxGroup = new THREE.Group();
+  group.add(hitboxGroup);
 
   // Options
   const strideBase = options.stride ?? 8;
@@ -54,6 +48,12 @@ export function createInteractiveWind({
   // Streamline options
   const streamlineSegments = options.streamlineSegments ?? 200; // število segmentov (več za daljši tok)
 
+  // Visibility and hitbox options
+  const showGlyphs = options.showGlyphs ?? false; // skrij majhne črtice privzeto
+  const hitboxRadius = options.hitboxRadius ?? 0.05; // polmer klik hitboxa (svetovne enote)
+  const avoidHitboxOverlap = options.avoidHitboxOverlap ?? true; // izogibaj se prekrivanju hitboxov
+  const initialShowHitboxes = options.showHitboxes ?? false; // možnost za debug prikaz hitboxov
+
   // Data za raycasting
   const windPoints = []; // { position, speed, direction, lat, lon, u, v }
   const raycaster = new THREE.Raycaster();
@@ -62,6 +62,7 @@ export function createInteractiveWind({
   let selectedLeaf = null;
   let selectedStreamline = null; // streamline za izbrani veter
   let leafModel = null;
+  let hitboxMaterial = null;
   let streamlinePathInfo = [];
 
   // Metadata iz podatkov (time, level)
@@ -69,8 +70,6 @@ export function createInteractiveWind({
     time: data?.meta?.time ?? null,
     level: data?.meta?.level ?? null,
   };
-
-  let passportState = null;
 
   // Animation state
   let leafAnimTime = 0; // čas animacije
@@ -180,6 +179,11 @@ export function createInteractiveWind({
       panel.classList.remove('visible');
     }
     stopPassportTracking();
+  }
+
+  function dispatchPassportEvent(detail) {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent(passportEventName, { detail }));
   }
 
   function dispatchPassportEvent(detail) {
@@ -349,7 +353,7 @@ export function createInteractiveWind({
 
     const line = new THREE.Line(geom, mat);
 
-    return { line, points, pathInfo };
+    return { line, points };
   }
 
   function init() {
@@ -384,6 +388,9 @@ export function createInteractiveWind({
     const positions = [];
     const colors = [];
 
+    // candidate points for click hitboxes (no jitter to better match global seeding)
+    const candidateWindPoints = [];
+
     for (let j = 0; j < lats.length; j += strideBase) {
       const lat = lats[j];
       const cosw = Math.max(0.001, Math.cos(degToRad(lat)));
@@ -398,6 +405,7 @@ export function createInteractiveWind({
         const speed = Math.hypot(u, v);
         if (speed < speedThreshold) continue;
 
+        // Jitter le za vizualne črtice (ki so skrite); hitboxe damo na grid
         const jLat = lat + (Math.random() - 0.5) * dLat * jitterAmt;
         const jLon = lons[i] + (Math.random() - 0.5) * dLon * jitterAmt;
 
@@ -419,19 +427,21 @@ export function createInteractiveWind({
 
         const end = start.clone().add(dir);
 
+        // Vizualne črtice (LineSegments) - lahko skrite
         positions.push(start.x, start.y, start.z, end.x, end.y, end.z);
 
         const c = getColorForSpeed(t);
         colors.push(c.r, c.g, c.b, c.r, c.g, c.b);
 
-        // Shrani podatke za raycasting (samo na začetni točki)
-        windPoints.push({
-          position: start.clone(),
+        // Shrani kandidat za hitbox (brez jitterja za bolj enakomerno mrežo)
+        const gridStart = latLonToVec3(lat, lons[i], globeRadius + lift);
+        candidateWindPoints.push({
+          position: gridStart.clone(),
           speed,
           normalizedSpeed: t,
           direction: dirNorm,
-          lat: jLat,
-          lon: jLon,
+          lat: lat,
+          lon: lons[i],
           u,
           v,
           color: c,
@@ -451,23 +461,43 @@ export function createInteractiveWind({
     });
 
     const lines = new THREE.LineSegments(geom, mat);
+    lines.visible = !!showGlyphs;
     group.add(lines);
 
-    // Dodaj majhne sfere za lažji raycasting
-    const sphereGeom = new THREE.SphereGeometry(0.02, 8, 8);
-    windPoints.forEach((wp) => {
-      const sphereMat = new THREE.MeshBasicMaterial({
-        color: 0xff0000, // debug barva (lahko se odstrani)
-        transparent: true,
-        opacity: 0.0, // popolnoma nevidne
-        depthTest: false,
-      });
-      const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+    // Dodaj nevidne sfere (večji hitbox) z izogibanjem prekrivanju
+    const sphereGeom = new THREE.SphereGeometry(hitboxRadius, 12, 12);
+    hitboxMaterial = new THREE.MeshBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: initialShowHitboxes ? 0.28 : 0.0,
+      depthTest: true,
+      depthWrite: true,
+    });
+
+    const placed = [];
+    const minDistSq = (hitboxRadius * 2) * (hitboxRadius * 2);
+
+    candidateWindPoints.forEach((wp) => {
+      let tooClose = false;
+      if (avoidHitboxOverlap) {
+        for (let k = 0; k < placed.length; k++) {
+          if (placed[k].distanceToSquared(wp.position) < minDistSq) {
+            tooClose = true;
+            break;
+          }
+        }
+      }
+      if (tooClose) return;
+
+      const sphere = new THREE.Mesh(sphereGeom, hitboxMaterial);
       sphere.position.copy(wp.position);
       sphere.userData.windData = wp;
-      sphere.visible = true; // morajo biti visible za raycasting
-      sphere.raycast = THREE.Mesh.prototype.raycast; // eksplicitno omogoči raycasting
-      group.add(sphere);
+      sphere.visible = true;
+      sphere.raycast = THREE.Mesh.prototype.raycast;
+      hitboxGroup.add(sphere);
+
+      placed.push(wp.position.clone());
+      windPoints.push(wp);
     });
 
     globeGroup?.add(group);
@@ -538,8 +568,8 @@ export function createInteractiveWind({
     raycaster.setFromCamera(mouse, camera);
 
     // Filtriraj samo sfere (Mesh objekti z windData)
-    const clickableSpheres = group.children.filter(
-      child => child.isMesh && child.userData.windData
+    const clickableSpheres = hitboxGroup.children.filter(
+      (child) => child.isMesh && child.userData.windData
     );
 
     const intersects = raycaster.intersectObjects(clickableSpheres, false);
@@ -707,6 +737,12 @@ export function createInteractiveWind({
     stopPassportTracking();
   }
 
+  function setShowHitboxes(show) {
+    if (!hitboxMaterial) return;
+    hitboxMaterial.opacity = show ? 0.28 : 0.0;
+    hitboxMaterial.needsUpdate = true;
+  }
+
   function update(dt) {
     // Animiraj listek, če obstaja in imamo streamline točke
     if (selectedLeaf && leafWindData && streamlinePoints.length > 1) {
@@ -783,5 +819,5 @@ export function createInteractiveWind({
     }
   }
 
-  return { group, init, update, dispose };
+  return { group, init, update, dispose, setShowHitboxes };
 }

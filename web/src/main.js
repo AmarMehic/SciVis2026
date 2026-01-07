@@ -13,7 +13,7 @@ import { createInteractiveWind } from './components/interactiveWind.js';
 import { createWindLegend } from './components/windLegend.js';
 import { createWindLevelControl } from './components/windLevelControl.js';
 import { createGlobalWindStreamlines } from './components/globalWindStreamlines.js';
-import { createToggleControl } from './components/toggleControl.js';
+import { createTogglesPanel } from './components/togglesPanel.js';
 import { createWindPassportPanel } from './components/windPassportPanel.js';
 
 const canvas = document.getElementById('scene');
@@ -44,16 +44,17 @@ const INITIAL_WIND_LEVEL = 0;
 function windLevelToUrl(level) {
   // /data/wind/uv_level_000.json ... uv_level_050.json
   const padded = String(level).padStart(3, '0');
-  return `/data/wind/uv_level_${padded}.json`;
+  // add a tiny cache-busting query to avoid stale caching between levels
+  return `/data/wind/uv_level_${padded}.json?v=${padded}`;
 }
 
 function windLevelsManifestUrl() {
-  return '/data/wind/levels.json';
+  return '/data/wind/levels.json?v=1';
 }
 
 async function loadWindLevelsManifest() {
   const url = windLevelsManifestUrl();
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   const text = await res.text();
   if (!res.ok) {
     throw new Error(
@@ -93,7 +94,7 @@ function nearestAvailableLevel(level, availableLevels) {
 
 async function loadWindLevel(level) {
   const url = windLevelToUrl(level);
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: 'no-store' });
   const text = await res.text();
   if (!res.ok) {
     throw new Error(
@@ -116,6 +117,7 @@ let availableWindLevels = null;
 let currentWindLevel = INITIAL_WIND_LEVEL;
 let currentWindData = null;
 let showGlobalStreamlines = true;
+let showInteractiveHitboxes = showGlobalStreamlines;
 
 function ensureGlobalStreamlines(data) {
   if (!showGlobalStreamlines) return;
@@ -171,8 +173,14 @@ async function setWindLevel(requestedLevel) {
         animDuration: 10.0,
         animLoop: true,
         setAutoRotate,
+        showHitboxes: showInteractiveHitboxes,
+        showGlyphs: false,
       },
     });
+
+    // Keep hitboxes in sync with the grouped toggle
+    const iw = components.get('interactiveWind');
+    if (iw?.setShowHitboxes) iw.setShowHitboxes(showInteractiveHitboxes);
 
     control?.setStatus('');
   } catch (err) {
@@ -207,20 +215,34 @@ addComponent('windLegend', createWindLegend, {
   },
 });
 
-// Toggle: global streamlines
-addComponent('globalStreamlinesToggle', createToggleControl, {
+addComponent('togglesPanel', createTogglesPanel, {
   options: {
     position: 'top-right',
-    title: 'Global streamlines',
-    initial: showGlobalStreamlines,
-    onChange: (enabled) => {
-      showGlobalStreamlines = enabled;
-      if (!enabled) {
-        removeComponent('globalWindStreamlines');
-      } else {
-        ensureGlobalStreamlines(currentWindData);
-      }
-    },
+    items: [
+      {
+        id: 'global',
+        title: 'Global streamlines',
+        initial: showGlobalStreamlines,
+        onChange: (enabled) => {
+          showGlobalStreamlines = enabled;
+          if (!enabled) {
+            removeComponent('globalWindStreamlines');
+          } else {
+            ensureGlobalStreamlines(currentWindData);
+          }
+        },
+      },
+      {
+        id: 'hitboxes',
+        title: 'Interactive hitboxes',
+        initial: showInteractiveHitboxes,
+        onChange: (enabled) => {
+          showInteractiveHitboxes = enabled;
+          const iw = components.get('interactiveWind');
+          if (iw?.setShowHitboxes) iw.setShowHitboxes(enabled);
+        },
+      },
+    ],
   },
 });
 
