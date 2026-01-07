@@ -1,0 +1,229 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "North Pacific Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180, 0],
+            [-120, 0],
+            [-120, 66],
+            [-180, 66],
+            [-180, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Central Pacific Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-120, -30],
+            [-60, -30],
+            [-60, 60],
+            [-120, 60],
+            [-120, -30]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "South Pacific Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-150, -60],
+            [-70, -60],
+            [-70, 0],
+            [-150, 0],
+            [-150, -60]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "North Atlantic Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-90, 0],
+            [20, 0],
+            [20, 70],
+            [-90, 70],
+            [-90, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "South Atlantic Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-70, -60],
+            [20, -60],
+            [20, 0],
+            [-70, 0],
+            [-70, -60]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Indian Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [20, -40],
+            [120, -40],
+            [120, 30],
+            [20, 30],
+            [20, -40]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Southern Ocean", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-180, -90],
+            [180, -90],
+            [180, -55],
+            [-180, -55],
+            [-180, -90]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Mediterranean Basin", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-10, 30],
+            [35, 30],
+            [35, 46],
+            [-10, 46],
+            [-10, 30]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Indian Subcontinent", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [65, 5],
+            [95, 5],
+            [95, 35],
+            [65, 35],
+            [65, 5]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "East Asia", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [95, 15],
+            [150, 15],
+            [150, 55],
+            [95, 55],
+            [95, 15]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Western Europe", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-10, 40],
+            [20, 40],
+            [20, 60],
+            [-10, 60],
+            [-10, 40]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "North America", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-140, 20],
+            [-60, 20],
+            [-60, 65],
+            [-140, 65],
+            [-140, 20]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "South America", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-85, -60],
+            [-35, -60],
+            [-35, 15],
+            [-85, 15],
+            [-85, -60]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Central Africa", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [10, -20],
+            [40, -20],
+            [40, 15],
+            [10, 15],
+            [10, -20]
+          ]
+        ]
+      }
+    }
+  ]
+}

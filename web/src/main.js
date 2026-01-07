@@ -14,6 +14,7 @@ import { createWindLegend } from './components/windLegend.js';
 import { createWindLevelControl } from './components/windLevelControl.js';
 import { createGlobalWindStreamlines } from './components/globalWindStreamlines.js';
 import { createToggleControl } from './components/toggleControl.js';
+import { createWindPassportPanel } from './components/windPassportPanel.js';
 
 const canvas = document.getElementById('scene');
 const {
@@ -220,6 +221,14 @@ addComponent('globalStreamlinesToggle', createToggleControl, {
         ensureGlobalStreamlines(currentWindData);
       }
     },
+  },
+});
+
+addComponent('windPassportPanel', createWindPassportPanel, {
+  options: {
+    position: 'top-right',
+    offsetTop: 120,
+    width: 320,
   },
 });
 

@@ -2,6 +2,7 @@
 // Interaktivni vetrni vektorji - klik prikaže listek na izbrani točki
 import * as THREE from 'three';
 import { latLonToVec3 } from '../utils/coords.js';
+import { describeRegions } from '../utils/geoRegions.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 function degToRad(d) {
@@ -17,6 +18,14 @@ function percentile(arr, p) {
   const a = [...arr].sort((x, y) => x - y);
   const i = Math.min(a.length - 1, Math.max(0, Math.floor((p / 100) * a.length)));
   return a[i];
+}
+
+function lerpWrappedLon(a, b, t) {
+  let delta = b - a;
+  if (Math.abs(delta) > 180) {
+    delta += delta > 0 ? -360 : 360;
+  }
+  return a + delta * t;
 }
 
 export function createInteractiveWind({
@@ -40,6 +49,7 @@ export function createInteractiveWind({
   const leafScale = options.leafScale ?? 0.25; // večji listek (prej 0.08)
   const leafModelPath = options.leafModelPath ?? '/models/tropical-leaf/source/fs.glb';
   const setAutoRotate = options.setAutoRotate; // funkcija za ustavitev globe rotacije
+  const passportEventName = options.passportEventName ?? 'wind:select';
 
   // Streamline options
   const streamlineSegments = options.streamlineSegments ?? 200; // število segmentov (več za daljši tok)
@@ -52,12 +62,15 @@ export function createInteractiveWind({
   let selectedLeaf = null;
   let selectedStreamline = null; // streamline za izbrani veter
   let leafModel = null;
+  let streamlinePathInfo = [];
 
   // Metadata iz podatkov (time, level)
   const metadata = {
     time: data?.meta?.time ?? null,
     level: data?.meta?.level ?? null,
   };
+
+  let passportState = null;
 
   // Animation state
   let leafAnimTime = 0; // čas animacije
@@ -166,6 +179,76 @@ export function createInteractiveWind({
     if (panel) {
       panel.classList.remove('visible');
     }
+    stopPassportTracking();
+  }
+
+  function dispatchPassportEvent(detail) {
+    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent(passportEventName, { detail }));
+  }
+
+  function startPassportTracking(windData) {
+    const colorHex =
+      windData.color && typeof windData.color.getHexString === 'function'
+        ? `#${windData.color.getHexString()}`
+        : '#ffffff';
+
+    passportState = {
+      base: {
+        speed: windData.speed,
+        normalizedSpeed: windData.normalizedSpeed,
+        level: metadata.level,
+        color: colorHex,
+      },
+      visited: [],
+      visitedSet: new Set(),
+      lastRegion: null,
+    };
+    updatePassportLocation(windData.lat, windData.lon, { forceEmit: true });
+  }
+
+  function stopPassportTracking() {
+    passportState = null;
+    dispatchPassportEvent(null);
+  }
+
+  function updatePassportLocation(lat, lon, { forceEmit = false } = {}) {
+    if (!passportState) return;
+    passportState.base.lat = lat;
+    passportState.base.lon = lon;
+    const region = describeRegions(lat, lon);
+    passportState.lastRegion = region;
+
+    let changed = forceEmit;
+    if (region?.landmarks?.length) {
+      for (const name of region.landmarks) {
+        if (!passportState.visitedSet.has(name)) {
+          passportState.visitedSet.add(name);
+          passportState.visited.push(name);
+          changed = true;
+        }
+      }
+    }
+    if (changed) emitPassportDetail();
+  }
+
+  function emitPassportDetail() {
+    if (!passportState) return;
+    const region = passportState.lastRegion || {};
+    const detail = {
+      lat: passportState.base.lat,
+      lon: passportState.base.lon,
+      speed: passportState.base.speed,
+      normalizedSpeed: passportState.base.normalizedSpeed,
+      level: passportState.base.level,
+      color: passportState.base.color,
+      hemisphere: region.hemisphere,
+      zone: region.zone,
+      sector: region.sector,
+      narrative: region.narrative,
+      landmarks: [...passportState.visited],
+    };
+    dispatchPassportEvent(detail);
   }
 
   // Interpoliraj veter na dani poziciji (lat, lon)
@@ -206,6 +289,7 @@ export function createInteractiveWind({
   function generateStreamline(startLat, startLon, startColor) {
     const points = [];
     const colors = [];
+    const pathInfo = [];
 
     let lat = startLat;
     let lon = startLon;
@@ -219,6 +303,7 @@ export function createInteractiveWind({
 
       const pos = latLonToVec3(lat, lon, globeRadius + lift * 1.5);
       points.push(pos);
+      pathInfo.push({ position: pos, lat, lon });
 
       // Barva se ponavlja za vsako točko
       colors.push(startColor.r, startColor.g, startColor.b);
@@ -264,7 +349,7 @@ export function createInteractiveWind({
 
     const line = new THREE.Line(geom, mat);
 
-    return { line, points };
+    return { line, points, pathInfo };
   }
 
   function init() {
@@ -429,6 +514,8 @@ export function createInteractiveWind({
         leafWindData = null;
         leafAnimTime = 0;
         streamlinePoints = [];
+        streamlinePathInfo = [];
+        stopPassportTracking();
         // Vklopi nazaj rotacijo
         if (setAutoRotate) {
           setAutoRotate(true);
@@ -484,16 +571,21 @@ export function createInteractiveWind({
           if (selectedStreamline.geometry) selectedStreamline.geometry.dispose();
           if (selectedStreamline.material) selectedStreamline.material.dispose();
         }
+        streamlinePathInfo = [];
+
+        stopPassportTracking();
 
         // Ustvari streamline
         const streamlineResult = generateStreamline(windData.lat, windData.lon, windData.color);
         if (streamlineResult) {
           selectedStreamline = streamlineResult.line;
           streamlinePoints = streamlineResult.points; // shrani točke za animacijo listka
+          streamlinePathInfo = streamlineResult.pathInfo;
           leafGroup.add(selectedStreamline);
           console.log('🌊 Streamline generated with', streamlinePoints.length, 'points');
         } else {
           streamlinePoints = []; // resetiraj če ni uspelo
+          streamlinePathInfo = [];
         }
 
         // Dodaj nov listek
@@ -530,6 +622,8 @@ export function createInteractiveWind({
 
         leafGroup.add(selectedLeaf);
 
+        startPassportTracking(windData);
+
         // Prikaži info panel
         showWindInfo(windData);
       }
@@ -557,6 +651,7 @@ export function createInteractiveWind({
       leafWindData = null;
       leafAnimTime = 0;
       streamlinePoints = []; // resetiraj točke streamline-a
+      streamlinePathInfo = [];
 
       // Vklopi nazaj rotacijo globe-a
       if (setAutoRotate) {
@@ -566,6 +661,7 @@ export function createInteractiveWind({
 
       // Skrij info panel
       hideWindInfo();
+      stopPassportTracking();
     }
   }
 
@@ -607,6 +703,8 @@ export function createInteractiveWind({
     group.clear();
     leafGroup.clear();
     windPoints.length = 0;
+    streamlinePathInfo = [];
+    stopPassportTracking();
   }
 
   function update(dt) {
@@ -634,6 +732,9 @@ export function createInteractiveWind({
       // Interpoliraj med dvema sosednjima točkama na streamline-u
       const p1 = streamlinePoints[Math.min(index, pathLength)];
       const p2 = streamlinePoints[Math.min(index + 1, pathLength)];
+      const info1 = streamlinePathInfo[Math.min(index, streamlinePathInfo.length - 1)] || { lat: leafWindData.lat, lon: leafWindData.lon };
+      const info2 =
+        streamlinePathInfo[Math.min(index + 1, streamlinePathInfo.length - 1)] || info1;
 
       // Linearna interpolacija med točkama
       const newPos = new THREE.Vector3().lerpVectors(p1, p2, localT);
@@ -662,6 +763,10 @@ export function createInteractiveWind({
       const up = selectedLeaf.position.clone().normalize();
       selectedLeaf.position.add(up.multiplyScalar(bobOffset));
 
+      const currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localT);
+      const currLon = lerpWrappedLon(info1.lon, info2.lon, localT);
+      updatePassportLocation(currLat, currLon);
+
       // Spremeni opacity proti koncu cikla (fade out/in)
       if (!animLoop) {
         const fadeStart = 0.8;
@@ -680,4 +785,3 @@ export function createInteractiveWind({
 
   return { group, init, update, dispose };
 }
-
