@@ -4,6 +4,10 @@ channels:
 dependencies:
   - python=3.11
   - numpy
+  - fastapi
+  - uvicorn
+  - websockets
+  - pytest
   - xarray
   - pandas
   - matplotlib
@@ -19,3 +23,4 @@ dependencies:
       - colorcet
       - xmltodict
       - OpenVisus
+      - locust

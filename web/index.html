@@ -18,10 +18,53 @@
       width: 100vw;
       height: 100vh;
     }
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 15px 25px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      z-index: 1000;
+    }
+    #controls button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    #controls button:hover {
+      background: #1557b0;
+    }
+    #controls button:disabled {
+      background: #555;
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    #controls .status {
+      color: #aaa;
+      font-size: 12px;
+      margin-left: 10px;
+    }
   </style>
 </head>
 <body>
   <canvas id="scene"></canvas>
+  <div id="controls">
+    <button id="playBtn">Play</button>
+    <button id="pauseBtn" disabled>Pause</button>
+    <span class="status" id="statusText">Ready</span>
+  </div>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>
