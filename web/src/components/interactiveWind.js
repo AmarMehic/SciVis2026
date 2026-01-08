@@ -21,14 +21,26 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function densifySegments(points, speeds, maxAngleRad) {
+function lerpWrappedLon(lonA, lonB, t) {
+  const a = Number.isFinite(lonA) ? lonA : 0;
+  const b = Number.isFinite(lonB) ? lonB : a;
+  let delta = b - a;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  return a + delta * clamp01(t);
+}
+
+function densifySegments(points, speeds, infos, maxAngleRad) {
   const densePoints = [];
   const denseSpeeds = [];
+  const denseInfo = [];
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
     const b = points[i + 1];
     const s0 = speeds[i];
     const s1 = speeds[i + 1] ?? s0;
+    const infoA = infos[i] ?? infos[i - 1] ?? infos[0] ?? { lat: 0, lon: 0 };
+    const infoB = infos[i + 1] ?? infoA;
     const v0 = a.clone().normalize();
     const v1 = b.clone().normalize();
     const dot = clamp(v0.dot(v1), -1, 1);
@@ -39,11 +51,17 @@ function densifySegments(points, speeds, maxAngleRad) {
       const t = j / steps;
       densePoints.push(a.clone().lerp(b, t));
       denseSpeeds.push(lerp(s0, s1, t));
+      denseInfo.push({
+        lat: lerp(infoA.lat, infoB.lat, t),
+        lon: lerpWrappedLon(infoA.lon, infoB.lon, t),
+      });
     }
   }
   densePoints.push(points[points.length - 1].clone());
   denseSpeeds.push(speeds[speeds.length - 1]);
-  return { densePoints, denseSpeeds };
+  const lastInfo = infos[infos.length - 1] ?? infos[infos.length - 2] ?? { lat: 0, lon: 0 };
+  denseInfo.push({ lat: lastInfo.lat, lon: lastInfo.lon });
+  return { densePoints, denseSpeeds, denseInfo };
 }
 
 // Bilinear interpolation on a regular lat/lon grid.
@@ -177,6 +195,7 @@ export function createInteractiveWind({
   let streamlineCurve = null; // zglajena krivulja za animacijo
   const animDuration = options.animDuration ?? 3.0; // trajanje animacije (sekunde)
   const animLoop = options.animLoop ?? true; // ali se animacija ponavlja
+  let passportState = null;
 
   // Color mapping
   const colorStops = [
@@ -279,11 +298,6 @@ export function createInteractiveWind({
       panel.classList.remove('visible');
     }
     stopPassportTracking();
-  }
-
-  function dispatchPassportEvent(detail) {
-    if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
-    window.dispatchEvent(new CustomEvent(passportEventName, { detail }));
   }
 
   function dispatchPassportEvent(detail) {
@@ -415,7 +429,7 @@ export function createInteractiveWind({
     const denom = p90 - p10 || 1;
 
     const maxAngleRad = degToRad(0.5);
-    const { densePoints, denseSpeeds } = densifySegments(points, speeds, maxAngleRad);
+    const { densePoints, denseSpeeds, denseInfo } = densifySegments(points, speeds, pathInfo, maxAngleRad);
     const denseSpeedNorms = denseSpeeds.map((s) => clamp01((s - p10) / denom));
 
     const curve = new THREE.CurvePath();
@@ -456,7 +470,7 @@ export function createInteractiveWind({
 
     const line = new THREE.Mesh(tube, mat);
 
-    return { line, points: densePoints, curve, speeds: denseSpeedNorms };
+    return { line, points: densePoints, curve, speeds: denseSpeedNorms, pathInfo: denseInfo };
   }
 
   function init() {
@@ -715,11 +729,13 @@ export function createInteractiveWind({
           selectedStreamline = streamlineResult.line;
           streamlinePoints = streamlineResult.points; // shrani točke za animacijo listka
           streamlineCurve = streamlineResult.curve;
+          streamlinePathInfo = streamlineResult.pathInfo ?? [];
           leafGroup.add(selectedStreamline);
           console.log('🌊 Streamline generated with', streamlinePoints.length, 'points');
         } else {
           streamlinePoints = []; // resetiraj če ni uspelo
           streamlineCurve = null;
+          streamlinePathInfo = [];
         }
 
         // Dodaj nov listek
@@ -864,9 +880,21 @@ export function createInteractiveWind({
 
       let newPos = null;
       let tangent = null;
+      let currLat = leafWindData.lat;
+      let currLon = leafWindData.lon;
       if (streamlineCurve) {
         newPos = streamlineCurve.getPointAt(t);
         tangent = streamlineCurve.getTangentAt(t);
+        if (streamlinePathInfo.length > 1) {
+          const pathLen = streamlinePathInfo.length - 1;
+          const pathPos = t * pathLen;
+          const idx = Math.floor(pathPos);
+          const localPathT = pathPos - idx;
+          const info1 = streamlinePathInfo[Math.min(idx, pathLen)] ?? streamlinePathInfo[0];
+          const info2 = streamlinePathInfo[Math.min(idx + 1, pathLen)] ?? info1;
+          currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localPathT);
+          currLon = lerpWrappedLon(info1.lon, info2.lon, localPathT);
+        }
       } else {
         // Fallback na linearno interpolacijo, če krivulja ni na voljo
         const pathLength = streamlinePoints.length - 1;
@@ -879,6 +907,8 @@ export function createInteractiveWind({
         const info2 = streamlinePathInfo[Math.min(index + 1, streamlinePathInfo.length - 1)] || info1;
         newPos = new THREE.Vector3().lerpVectors(p1, p2, localT);
         tangent = new THREE.Vector3().subVectors(p2, p1).normalize();
+        currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localT);
+        currLon = lerpWrappedLon(info1.lon, info2.lon, localT);
       }
 
       // Posodobi pozicijo listka
@@ -901,8 +931,6 @@ export function createInteractiveWind({
       const up = selectedLeaf.position.clone().normalize();
       selectedLeaf.position.add(up.multiplyScalar(bobOffset));
 
-      const currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localT);
-      const currLon = lerpWrappedLon(info1.lon, info2.lon, localT);
       updatePassportLocation(currLat, currLon);
 
       // Spremeni opacity proti koncu cikla (fade out/in)

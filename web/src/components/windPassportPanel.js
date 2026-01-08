@@ -30,6 +30,18 @@ export function createWindPassportPanel({ options = {} }) {
   const offsetTop = Number.isFinite(options.offsetTop) ? options.offsetTop : 120;
   const offsetSide = Number.isFinite(options.offsetSide) ? options.offsetSide : 20;
   const width = Number.isFinite(options.width) ? options.width : 300;
+  const eventName =
+    typeof options.eventName === 'string'
+      ? options.eventName
+      : typeof options.passportEventName === 'string'
+      ? options.passportEventName
+      : 'wind:select';
+  const mountNode = options.mount ?? null;
+  const eventTargetOverride = options.eventTarget ?? null;
+  const emptyStateCopy = {
+    title: options.emptyTitle ?? DEFAULT_EMPTY_COPY.title,
+    message: options.emptyMessage ?? DEFAULT_EMPTY_COPY.message,
+  };
 
   let container = null;
   let headerValueEl = null;
@@ -37,19 +49,36 @@ export function createWindPassportPanel({ options = {} }) {
   let messageEl = null;
   let colorBadgeEl = null;
   let valueTextEl = null;
+  let boundEventTarget = null;
 
   function handleWindSelect(event) {
     // The interactive leaf component will eventually emit this event.
     const detail = event?.detail || null;
     if (!detail) {
-      renderEmpty(DEFAULT_EMPTY_COPY);
+      renderEmpty(emptyStateCopy);
       return;
     }
     renderPassport(detail);
   }
 
+  function getDocument() {
+    return typeof document !== 'undefined' ? document : null;
+  }
+
+  function getEventTarget() {
+    if (eventTargetOverride) return eventTargetOverride;
+    if (typeof window !== 'undefined') return window;
+    return null;
+  }
+
   function init() {
-    container = document.createElement('div');
+    const doc = getDocument();
+    if (!doc) {
+      console.warn('windPassportPanel: document is not available, skipping init');
+      return;
+    }
+
+    container = doc.createElement('div');
     container.id = 'wind-passport-panel';
     container.style.cssText = `
       position: fixed;
@@ -67,7 +96,7 @@ export function createWindPassportPanel({ options = {} }) {
       z-index: 1200;
     `;
 
-    const header = document.createElement('div');
+    const header = doc.createElement('div');
     header.style.cssText = `
       display: flex;
       justify-content: space-between;
@@ -76,7 +105,7 @@ export function createWindPassportPanel({ options = {} }) {
       gap: 16px;
     `;
 
-    const titleEl = document.createElement('div');
+    const titleEl = doc.createElement('div');
     titleEl.textContent = title;
     titleEl.style.cssText = `
       font-size: 14px;
@@ -87,7 +116,7 @@ export function createWindPassportPanel({ options = {} }) {
     `;
     header.appendChild(titleEl);
 
-    colorBadgeEl = document.createElement('span');
+    colorBadgeEl = doc.createElement('span');
     colorBadgeEl.style.cssText = `
       width: 14px;
       height: 14px;
@@ -97,7 +126,7 @@ export function createWindPassportPanel({ options = {} }) {
       display: inline-block;
     `;
 
-    headerValueEl = document.createElement('div');
+    headerValueEl = doc.createElement('div');
     headerValueEl.style.cssText = `
       font-variant-numeric: tabular-nums;
       font-size: 16px;
@@ -107,14 +136,14 @@ export function createWindPassportPanel({ options = {} }) {
       align-items: center;
       gap: 8px;
     `;
-    valueTextEl = document.createElement('span');
+    valueTextEl = doc.createElement('span');
     valueTextEl.textContent = '--';
     headerValueEl.append(colorBadgeEl, valueTextEl);
     header.appendChild(headerValueEl);
 
     container.appendChild(header);
 
-    listEl = document.createElement('dl');
+    listEl = doc.createElement('dl');
     listEl.style.cssText = `
       margin: 0;
       padding: 0;
@@ -124,7 +153,7 @@ export function createWindPassportPanel({ options = {} }) {
     `;
     container.appendChild(listEl);
 
-    messageEl = document.createElement('div');
+    messageEl = doc.createElement('div');
     messageEl.style.cssText = `
       margin-top: 12px;
       padding-top: 10px;
@@ -134,12 +163,20 @@ export function createWindPassportPanel({ options = {} }) {
     `;
     container.appendChild(messageEl);
 
-    document.body.appendChild(container);
+    const parent = mountNode ?? doc.body;
+    if (!parent) {
+      console.warn('windPassportPanel: no mount node available');
+      return;
+    }
+    parent.appendChild(container);
 
-    renderEmpty(DEFAULT_EMPTY_COPY);
+    renderEmpty(emptyStateCopy);
 
     // Listen for upcoming events but do not fail if nobody dispatches them yet.
-    window.addEventListener('wind:select', handleWindSelect);
+    boundEventTarget = getEventTarget();
+    if (boundEventTarget && eventName) {
+      boundEventTarget.addEventListener(eventName, handleWindSelect);
+    }
   }
 
   function renderPassport(detail) {
@@ -195,11 +232,13 @@ export function createWindPassportPanel({ options = {} }) {
 
   function addRow(label, value) {
     if (!listEl) return;
-    const dt = document.createElement('dt');
+    const doc = getDocument();
+    if (!doc) return;
+    const dt = doc.createElement('dt');
     dt.textContent = label;
     dt.style.cssText = 'color: #8ea4c7; font-weight: 500;';
 
-    const dd = document.createElement('dd');
+    const dd = doc.createElement('dd');
     dd.style.cssText = 'margin: 0; white-space: pre-line; color: #fefefe;';
     dd.textContent = value ?? '—';
 
@@ -209,16 +248,18 @@ export function createWindPassportPanel({ options = {} }) {
 
   function addList(label, items) {
     if (!listEl) return;
-    const dt = document.createElement('dt');
+    const doc = getDocument();
+    if (!doc) return;
+    const dt = doc.createElement('dt');
     dt.textContent = label;
     dt.style.cssText = 'color: #8ea4c7; font-weight: 500;';
 
-    const dd = document.createElement('dd');
+    const dd = doc.createElement('dd');
     dd.style.cssText = 'margin: 0;';
-    const ul = document.createElement('ul');
+    const ul = doc.createElement('ul');
     ul.style.cssText = 'padding-left: 16px; margin: 0; color: #fefefe;';
     items.forEach((item) => {
-      const li = document.createElement('li');
+      const li = doc.createElement('li');
       li.textContent = item;
       ul.appendChild(li);
     });
@@ -257,7 +298,9 @@ export function createWindPassportPanel({ options = {} }) {
   }
 
   function dispose() {
-    window.removeEventListener('wind:select', handleWindSelect);
+    if (boundEventTarget && eventName) {
+      boundEventTarget.removeEventListener(eventName, handleWindSelect);
+    }
     if (container?.parentElement) {
       container.parentElement.removeChild(container);
     }
@@ -265,6 +308,7 @@ export function createWindPassportPanel({ options = {} }) {
     headerValueEl = null;
     listEl = null;
     messageEl = null;
+    boundEventTarget = null;
   }
 
   return {
