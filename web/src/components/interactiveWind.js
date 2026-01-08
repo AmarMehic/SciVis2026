@@ -8,8 +8,107 @@ function degToRad(d) {
   return (Math.PI / 180) * d;
 }
 
+function clamp(x, a, b) {
+  return Math.max(a, Math.min(b, x));
+}
+
 function clamp01(x) {
   return Math.max(0, Math.min(1, x));
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function densifySegments(points, speeds, maxAngleRad) {
+  const densePoints = [];
+  const denseSpeeds = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const s0 = speeds[i];
+    const s1 = speeds[i + 1] ?? s0;
+    const v0 = a.clone().normalize();
+    const v1 = b.clone().normalize();
+    const dot = clamp(v0.dot(v1), -1, 1);
+    const angle = Math.acos(dot);
+    const steps = Math.max(1, Math.ceil(angle / maxAngleRad));
+    for (let j = 0; j < steps; j++) {
+      if (i > 0 && j === 0) continue;
+      const t = j / steps;
+      densePoints.push(a.clone().lerp(b, t));
+      denseSpeeds.push(lerp(s0, s1, t));
+    }
+  }
+  densePoints.push(points[points.length - 1].clone());
+  denseSpeeds.push(speeds[speeds.length - 1]);
+  return { densePoints, denseSpeeds };
+}
+
+// Bilinear interpolation on a regular lat/lon grid.
+function sampleBilinear(lat, lon, lats, lons, U, V) {
+  const nLat = lats.length;
+  const nLon = lons.length;
+  if (nLat < 2 || nLon < 2) return null;
+
+  const lon0 = lons[0];
+  const lonN = lons[nLon - 1];
+
+  let qLon = lon;
+  const gridIs360 = lon0 >= 0 && lonN > 180;
+  if (gridIs360 && qLon < 0) qLon += 360;
+
+  const minLon = Math.min(lon0, lonN);
+  const maxLon = Math.max(lon0, lonN);
+  qLon = clamp(qLon, minLon, maxLon);
+
+  const latInc = lats[1] > lats[0];
+  const minLat = latInc ? lats[0] : lats[nLat - 1];
+  const maxLat = latInc ? lats[nLat - 1] : lats[0];
+  const qLat = clamp(lat, minLat, maxLat);
+
+  let i1 = 1;
+  while (i1 < nLon && lons[i1] < qLon) i1++;
+  i1 = clamp(i1, 1, nLon - 1);
+  const i0 = i1 - 1;
+
+  let j1 = 1;
+  if (latInc) {
+    while (j1 < nLat && lats[j1] < qLat) j1++;
+  } else {
+    while (j1 < nLat && lats[j1] > qLat) j1++;
+  }
+  j1 = clamp(j1, 1, nLat - 1);
+  const j0 = j1 - 1;
+
+  const lonA = lons[i0];
+  const lonB = lons[i1];
+  const latA = lats[j0];
+  const latB = lats[j1];
+
+  const tx = lonB === lonA ? 0 : (qLon - lonA) / (lonB - lonA);
+  const ty = latB === latA ? 0 : (qLat - latA) / (latB - latA);
+
+  const u00 = U[j0]?.[i0];
+  const u10 = U[j0]?.[i1];
+  const u01 = U[j1]?.[i0];
+  const u11 = U[j1]?.[i1];
+  const v00 = V[j0]?.[i0];
+  const v10 = V[j0]?.[i1];
+  const v01 = V[j1]?.[i0];
+  const v11 = V[j1]?.[i1];
+
+  if (![u00, u10, u01, u11, v00, v10, v01, v11].every(Number.isFinite)) return null;
+
+  const u0 = lerp(u00, u10, tx);
+  const u1 = lerp(u01, u11, tx);
+  const v0 = lerp(v00, v10, tx);
+  const v1 = lerp(v01, v11, tx);
+
+  const u = lerp(u0, u1, ty);
+  const v = lerp(v0, v1, ty);
+
+  return { u, v };
 }
 
 function percentile(arr, p) {
@@ -44,10 +143,10 @@ export function createInteractiveWind({
   const setAutoRotate = options.setAutoRotate; // funkcija za ustavitev globe rotacije
 
   // Streamline options
-  const streamlineSegments = options.streamlineSegments ?? 200; // število segmentov (več za daljši tok)
+  const streamlineSegments = options.streamlineSegments ?? 120; // število segmentov (več za daljši tok)
 
   // Visibility and hitbox options
-  const showGlyphs = options.showGlyphs ?? false; // skrij majhne črtice privzeto
+  const showGlyphs = options.showGlyphs ?? true; // skrij majhne črtice privzeto
   const hitboxRadius = options.hitboxRadius ?? 0.05; // polmer klik hitboxa (svetovne enote)
   const avoidHitboxOverlap = options.avoidHitboxOverlap ?? true; // izogibaj se prekrivanju hitboxov
   const initialShowHitboxes = options.showHitboxes ?? false; // možnost za debug prikaz hitboxov
@@ -72,6 +171,7 @@ export function createInteractiveWind({
   let leafAnimTime = 0; // čas animacije
   let leafWindData = null; // podatki o vetru
   let streamlinePoints = []; // točke streamline-a za animacijo
+  let streamlineCurve = null; // zglajena krivulja za animacijo
   const animDuration = options.animDuration ?? 3.0; // trajanje animacije (sekunde)
   const animLoop = options.animLoop ?? true; // ali se animacija ponavlja
 
@@ -185,57 +285,36 @@ export function createInteractiveWind({
     const lons = data.meta.grid.lon;
     const U = data.u;
     const V = data.v;
-
-    // Najdi najbližji grid point (lahko bi tudi bilinearno interpolirali)
-    let minDist = Infinity;
-    let bestI = 0, bestJ = 0;
-
-    for (let j = 0; j < lats.length; j++) {
-      for (let i = 0; i < lons.length; i++) {
-        const dLat = lat - lats[j];
-        const dLon = lon - lons[i];
-        const dist = dLat * dLat + dLon * dLon;
-        if (dist < minDist) {
-          minDist = dist;
-          bestI = i;
-          bestJ = j;
-        }
-      }
-    }
-
-    const u = U[bestJ]?.[bestI];
-    const v = V[bestJ]?.[bestI];
-
-    if (!Number.isFinite(u) || !Number.isFinite(v)) return null;
-
-    return { u, v };
+    return sampleBilinear(lat, lon, lats, lons, U, V);
   }
 
   // Generiraj streamline od dane točke
   function generateStreamline(startLat, startLon, startColor) {
     const points = [];
-    const colors = [];
+    const speeds = [];
 
     let lat = startLat;
     let lon = startLon;
 
-    // Manjši korak za bolj gladek tok
-    const stepSize = 0.2; // stopinje za vsak korak (manjši = bolj natančen)
+    // Korak naj sledi globalnim streamlinom za ujemanje poti
+    const stepSize = 0.35; // stopinje za vsak korak
+    const streamlineRadius = globeRadius + lift;
 
     for (let i = 0; i < streamlineSegments; i++) {
       const wind = interpolateWind(lat, lon);
       if (!wind) break;
 
-      const pos = latLonToVec3(lat, lon, globeRadius + lift * 1.5);
+      const speed = Math.hypot(wind.u, wind.v);
+      if (speed < speedThreshold) break;
+      const pos = latLonToVec3(lat, lon, streamlineRadius);
       points.push(pos);
+      speeds.push(speed);
 
-      // Barva se ponavlja za vsako točko
-      colors.push(startColor.r, startColor.g, startColor.b);
-
-      // Izračunaj naslednji korak
+      // Izračunaj naslednji korak (Euler, da sledi globalnim streamlinom)
       // Večje skaliranje da dosežemo podobno dolžino kot animacija listka (0.3 * globeRadius)
-      const dLat = wind.v * stepSize * 0.3;
-      const dLon = wind.u * stepSize * 0.3;
+      const step = stepSize * 0.3;
+      const dLat = wind.v * step;
+      const dLon = wind.u * step;
 
       lat += dLat;
       lon += dLon;
@@ -251,29 +330,53 @@ export function createInteractiveWind({
       return null;
     }
 
-    // Ustvari geometrijo
-    const positions = new Float32Array(points.length * 3);
-    points.forEach((p, i) => {
-      positions[i * 3] = p.x;
-      positions[i * 3 + 1] = p.y;
-      positions[i * 3 + 2] = p.z;
-    });
+    const p10 = percentile(speeds, 10);
+    const p90 = percentile(speeds, 90);
+    const denom = p90 - p10 || 1;
 
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const maxAngleRad = degToRad(0.5);
+    const { densePoints, denseSpeeds } = densifySegments(points, speeds, maxAngleRad);
+    const denseSpeedNorms = denseSpeeds.map((s) => clamp01((s - p10) / denom));
 
-    const mat = new THREE.LineBasicMaterial({
+    const curve = new THREE.CurvePath();
+    for (let i = 0; i < densePoints.length - 1; i++) {
+      curve.add(new THREE.LineCurve3(densePoints[i], densePoints[i + 1]));
+    }
+
+    const tubularSegments = Math.max(32, densePoints.length - 1);
+    const tube = new THREE.TubeGeometry(
+      curve,
+      tubularSegments,
+      0.005 * globeRadius,
+      8,
+      false
+    );
+
+    const colors = new Float32Array(tube.attributes.position.count * 3);
+    const ringSize = tube.parameters.radialSegments + 1;
+    for (let i = 0; i < tubularSegments + 1; i++) {
+      const t = tubularSegments > 0 ? i / tubularSegments : 0;
+      const idx = Math.round(t * (denseSpeedNorms.length - 1));
+      const c = getColorForSpeed(denseSpeedNorms[idx]);
+      for (let j = 0; j < ringSize; j++) {
+        const k = (i * ringSize + j) * 3;
+        colors[k] = c.r;
+        colors[k + 1] = c.g;
+        colors[k + 2] = c.b;
+      }
+    }
+    tube.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const mat = new THREE.MeshBasicMaterial({
       vertexColors: true,
       transparent: true,
       opacity: 0.8,
-      linewidth: 2,
       depthTest: true,
     });
 
-    const line = new THREE.Line(geom, mat);
+    const line = new THREE.Mesh(tube, mat);
 
-    return { line, points };
+    return { line, points: densePoints, curve, speeds: denseSpeedNorms };
   }
 
   function init() {
@@ -391,7 +494,7 @@ export function createInteractiveWind({
       transparent: true,
       opacity: initialShowHitboxes ? 0.28 : 0.0,
       depthTest: true,
-      depthWrite: true,
+      depthWrite: false,
     });
 
     const placed = [];
@@ -464,6 +567,7 @@ export function createInteractiveWind({
         leafWindData = null;
         leafAnimTime = 0;
         streamlinePoints = [];
+        streamlineCurve = null;
         // Vklopi nazaj rotacijo
         if (setAutoRotate) {
           setAutoRotate(true);
@@ -525,10 +629,12 @@ export function createInteractiveWind({
         if (streamlineResult) {
           selectedStreamline = streamlineResult.line;
           streamlinePoints = streamlineResult.points; // shrani točke za animacijo listka
+          streamlineCurve = streamlineResult.curve;
           leafGroup.add(selectedStreamline);
           console.log('🌊 Streamline generated with', streamlinePoints.length, 'points');
         } else {
           streamlinePoints = []; // resetiraj če ni uspelo
+          streamlineCurve = null;
         }
 
         // Dodaj nov listek
@@ -592,6 +698,7 @@ export function createInteractiveWind({
       leafWindData = null;
       leafAnimTime = 0;
       streamlinePoints = []; // resetiraj točke streamline-a
+      streamlineCurve = null;
 
       // Vklopi nazaj rotacijo globe-a
       if (setAutoRotate) {
@@ -651,7 +758,7 @@ export function createInteractiveWind({
 
   function update(dt) {
     // Animiraj listek, če obstaja in imamo streamline točke
-    if (selectedLeaf && leafWindData && streamlinePoints.length > 1) {
+    if (selectedLeaf && leafWindData && (streamlineCurve || streamlinePoints.length > 1)) {
       const prevTime = leafAnimTime;
       leafAnimTime += dt;
 
@@ -664,31 +771,30 @@ export function createInteractiveWind({
         console.log('🔄 Leaf animation looped - starting cycle ' + Math.floor(leafAnimTime / animDuration));
       }
 
-      // Izračunaj pozicijo vzdolž streamline-a
-      // t=0 -> začetek, t=1 -> konec streamline-a
-      const pathLength = streamlinePoints.length - 1;
-      const pathPosition = t * pathLength; // float med 0 in pathLength
-      const index = Math.floor(pathPosition); // index spodnje točke
-      const localT = pathPosition - index; // lokalni t med dvema točkama (0..1)
-
-      // Interpoliraj med dvema sosednjima točkama na streamline-u
-      const p1 = streamlinePoints[Math.min(index, pathLength)];
-      const p2 = streamlinePoints[Math.min(index + 1, pathLength)];
-
-      // Linearna interpolacija med točkama
-      const newPos = new THREE.Vector3().lerpVectors(p1, p2, localT);
+      let newPos = null;
+      let tangent = null;
+      if (streamlineCurve) {
+        newPos = streamlineCurve.getPointAt(t);
+        tangent = streamlineCurve.getTangentAt(t);
+      } else {
+        // Fallback na linearno interpolacijo, če krivulja ni na voljo
+        const pathLength = streamlinePoints.length - 1;
+        const pathPosition = t * pathLength;
+        const index = Math.floor(pathPosition);
+        const localT = pathPosition - index;
+        const p1 = streamlinePoints[Math.min(index, pathLength)];
+        const p2 = streamlinePoints[Math.min(index + 1, pathLength)];
+        newPos = new THREE.Vector3().lerpVectors(p1, p2, localT);
+        tangent = new THREE.Vector3().subVectors(p2, p1).normalize();
+      }
 
       // Posodobi pozicijo listka
       selectedLeaf.position.copy(newPos);
 
       // Orientiraj listek v smeri gibanja (tangenta streamline-a)
-      if (index + 1 < streamlinePoints.length) {
-        const direction = new THREE.Vector3().subVectors(p2, p1).normalize();
-        if (direction.lengthSq() > 0.001) {
-          // Uporabi lookAt za orientacijo
-          const lookAtTarget = newPos.clone().add(direction);
-          selectedLeaf.lookAt(lookAtTarget);
-        }
+      if (tangent && tangent.lengthSq() > 0.001) {
+        const lookAtTarget = newPos.clone().add(tangent);
+        selectedLeaf.lookAt(lookAtTarget);
       }
 
       // Dodaj majhno vrtenje za dinamičnost (listek se vrti medtem ko potuje)
@@ -720,4 +826,3 @@ export function createInteractiveWind({
 
   return { group, init, update, dispose, setShowHitboxes };
 }
-
