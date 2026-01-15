@@ -666,9 +666,10 @@ export function createInteractiveWind({
     );
 
     const intersects = raycaster.intersectObjects(clickableSpheres, false);
+    const frontHits = intersects.filter((hit) => hit.point.dot(camera.position) > 0);
 
-    if (intersects.length > 0) {
-      const hit = intersects[0];
+    if (frontHits.length > 0) {
+      const hit = frontHits[0];
       const windData = hit.object.userData.windData;
 
       if (windData) {
