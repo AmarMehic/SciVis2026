@@ -23,6 +23,7 @@ export function createWindLevelControl({ options = {} }) {
   let valueEl = null;
   let inputEl = null;
   let statusEl = null;
+  let fillEl = null;
 
   function getPositionStyles(pos) {
     switch (pos) {
@@ -42,10 +43,19 @@ export function createWindLevelControl({ options = {} }) {
     if (statusEl) statusEl.textContent = text ?? '';
   }
 
+  function updateFill(value) {
+    if (!fillEl) return;
+    const range = max - min || 1;
+    const pct = ((Number(value) - min) / range) * 100;
+    const clamped = Math.max(0, Math.min(100, pct));
+    fillEl.style.width = `${clamped}%`;
+  }
+
   function setValue(v, { emit = false } = {}) {
     const clamped = Math.max(min, Math.min(max, Number(v)));
     if (inputEl) inputEl.value = String(clamped);
     if (valueEl) valueEl.textContent = formatLabel(clamped);
+    updateFill(clamped);
 
     if (emit && onLevelChange) onLevelChange(clamped);
   }
@@ -65,6 +75,7 @@ export function createWindLevelControl({ options = {} }) {
       const clamped = Math.max(min, Math.min(max, current));
       inputEl.value = String(clamped);
       if (valueEl) valueEl.textContent = formatLabel(clamped);
+      updateFill(clamped);
     }
   }
 
@@ -79,18 +90,19 @@ export function createWindLevelControl({ options = {} }) {
     container.style.cssText = `
       position: fixed;
       ${getPositionStyles(position)}
-      background: rgba(5, 7, 13, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      padding: 12px 16px;
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 13px;
-      color: #ffffff;
-      backdrop-filter: blur(10px);
+      background: linear-gradient(155deg, rgba(12, 18, 34, 0.96), rgba(5, 9, 18, 0.94));
+      border: 1px solid rgba(140, 180, 255, 0.22);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-family: "Avenir Next", "Avenir", "Futura", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+      font-size: 12.5px;
+      color: #eaf0ff;
+      backdrop-filter: blur(14px) saturate(1.2);
       z-index: 1000;
       min-width: 220px;
       display: ${visible ? 'block' : 'none'};
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 18px 30px rgba(2, 6, 15, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      letter-spacing: 0.01em;
     `;
 
     const header = document.createElement('div');
@@ -106,20 +118,61 @@ export function createWindLevelControl({ options = {} }) {
     titleEl.textContent = title;
     titleEl.style.cssText = `
       font-weight: 600;
-      font-size: 14px;
-      color: #e0e0e0;
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #9cc1ff;
     `;
     header.appendChild(titleEl);
 
     valueEl = document.createElement('div');
     valueEl.style.cssText = `
       font-variant-numeric: tabular-nums;
-      color: #ffffff;
+      color: #f8fbff;
       font-weight: 600;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: rgba(110, 150, 255, 0.18);
+      border: 1px solid rgba(140, 180, 255, 0.35);
     `;
     header.appendChild(valueEl);
 
     container.appendChild(header);
+
+    const sliderWrap = document.createElement('div');
+    sliderWrap.style.cssText = `
+      position: relative;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      margin-top: 2px;
+    `;
+
+    const trackEl = document.createElement('div');
+    trackEl.style.cssText = `
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(120, 140, 180, 0.22);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
+    `;
+
+    fillEl = document.createElement('div');
+    fillEl.style.cssText = `
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #7bd5ff, #6ef2c0);
+      box-shadow: 0 0 10px rgba(110,242,192,0.35);
+    `;
+    trackEl.appendChild(fillEl);
+    sliderWrap.appendChild(trackEl);
 
     inputEl = document.createElement('input');
     inputEl.type = 'range';
@@ -128,30 +181,39 @@ export function createWindLevelControl({ options = {} }) {
     inputEl.step = String(step);
     inputEl.value = String(initial);
     inputEl.style.cssText = `
+      position: relative;
       width: 100%;
-      accent-color: #4a90e2;
+      margin: 0;
+      background: transparent;
+      accent-color: #7bd5ff;
+      z-index: 1;
+      height: 18px;
     `;
 
     inputEl.addEventListener('input', () => {
       const v = Number(inputEl.value);
       if (valueEl) valueEl.textContent = formatLabel(v);
+      updateFill(v);
     });
 
     // Change fires less often; good place to load heavy data
     inputEl.addEventListener('change', () => {
       const v = Number(inputEl.value);
       if (valueEl) valueEl.textContent = formatLabel(v);
+      updateFill(v);
       if (onLevelChange) onLevelChange(v);
     });
 
-    container.appendChild(inputEl);
+    sliderWrap.appendChild(inputEl);
+    container.appendChild(sliderWrap);
 
     statusEl = document.createElement('div');
     statusEl.style.cssText = `
       margin-top: 8px;
       font-size: 11px;
-      color: #888;
+      color: #8aa0c8;
       min-height: 14px;
+      letter-spacing: 0.02em;
     `;
     container.appendChild(statusEl);
 
@@ -167,6 +229,7 @@ export function createWindLevelControl({ options = {} }) {
     valueEl = null;
     inputEl = null;
     statusEl = null;
+    fillEl = null;
   }
 
   function show() {

@@ -24,18 +24,19 @@ export function createWindLegend({ options = {} }) {
     container.style.cssText = `
       position: fixed;
       ${getPositionStyles(position)}
-      background: rgba(5, 7, 13, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
+      background: linear-gradient(155deg, rgba(12, 18, 34, 0.96), rgba(5, 9, 18, 0.94));
+      border: 1px solid rgba(140, 180, 255, 0.22);
+      border-radius: 12px;
       padding: 12px 16px;
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 13px;
-      color: #ffffff;
-      backdrop-filter: blur(10px);
+      font-family: "Avenir Next", "Avenir", "Futura", "Gill Sans", "Trebuchet MS", "Helvetica Neue", sans-serif;
+      font-size: 12.5px;
+      color: #eaf0ff;
+      backdrop-filter: blur(14px) saturate(1.2);
       z-index: 1000;
       min-width: 180px;
       display: ${visible ? 'block' : 'none'};
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 18px 30px rgba(2, 6, 15, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      letter-spacing: 0.01em;
     `;
 
     // Naslov
@@ -44,9 +45,11 @@ export function createWindLegend({ options = {} }) {
     titleEl.style.cssText = `
       font-weight: 600;
       margin-bottom: 10px;
-      font-size: 14px;
+      font-size: 12px;
       text-align: center;
-      color: #e0e0e0;
+      color: #9cc1ff;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
     `;
     container.appendChild(titleEl);
 
@@ -55,11 +58,12 @@ export function createWindLegend({ options = {} }) {
     const gradientColors = colorStops.map(s => s.color).join(', ');
     gradientBar.style.cssText = `
       width: 100%;
-      height: 20px;
+      height: 14px;
       background: linear-gradient(to right, ${gradientColors});
-      border-radius: 4px;
-      margin-bottom: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 0 10px rgba(123, 213, 255, 0.2);
     `;
     container.appendChild(gradientBar);
 
@@ -68,8 +72,10 @@ export function createWindLegend({ options = {} }) {
     labelsContainer.style.cssText = `
       display: flex;
       justify-content: space-between;
-      font-size: 11px;
-      color: #b0b0b0;
+      font-size: 10px;
+      color: #b5c1dc;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
     `;
 
     colorStops.forEach((stop, idx) => {
@@ -89,8 +95,9 @@ export function createWindLegend({ options = {} }) {
       padding-top: 8px;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       font-size: 11px;
-      color: #888;
+      color: #8aa0c8;
       text-align: center;
+      letter-spacing: 0.02em;
     `;
     infoEl.textContent = 'Click on wind vectors to see details';
     container.appendChild(infoEl);
@@ -136,4 +143,3 @@ export function createWindLegend({ options = {} }) {
     hide,
   };
 }
-

@@ -5,6 +5,81 @@ import { createAssetCache } from "./utils/loader.js";
 
 const earthModelUrl = new URL("./assets/models/earth.glb", import.meta.url).href;
 
+function createStarLayer({
+  count = 1200,
+  radius = 40,
+  spread = 18,
+  size = 0.02,
+  opacity = 0.9,
+}) {
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const cool = new THREE.Color(0x8fb8ff);
+  const warm = new THREE.Color(0xfff2c2);
+
+  for (let i = 0; i < count; i++) {
+    const u = Math.random();
+    const v = Math.random();
+    const theta = 2 * Math.PI * u;
+    const phi = Math.acos(2 * v - 1);
+    const r = radius + Math.random() * spread;
+
+    const sinPhi = Math.sin(phi);
+    const x = r * sinPhi * Math.cos(theta);
+    const y = r * Math.cos(phi);
+    const z = r * sinPhi * Math.sin(theta);
+
+    const idx = i * 3;
+    positions[idx] = x;
+    positions[idx + 1] = y;
+    positions[idx + 2] = z;
+
+    const tint = cool.clone().lerp(warm, Math.random());
+    const intensity = 0.6 + Math.random() * 0.4;
+    tint.multiplyScalar(intensity);
+    colors[idx] = tint.r;
+    colors[idx + 1] = tint.g;
+    colors[idx + 2] = tint.b;
+  }
+
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  const material = new THREE.PointsMaterial({
+    size,
+    vertexColors: true,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+    sizeAttenuation: true,
+  });
+
+  return new THREE.Points(geometry, material);
+}
+
+function createStarfield() {
+  const group = new THREE.Group();
+  const fineStars = createStarLayer({
+    count: 1600,
+    radius: 38,
+    spread: 22,
+    size: 0.018,
+    opacity: 0.85,
+  });
+  const brightStars = createStarLayer({
+    count: 280,
+    radius: 36,
+    spread: 18,
+    size: 0.045,
+    opacity: 0.95,
+  });
+
+  group.add(fineStars);
+  group.add(brightStars);
+  return group;
+}
+
 export function createGlobe(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -13,6 +88,8 @@ export function createGlobe(canvas) {
   renderer.setClearColor(0x0b1020, 1);
 
   const scene = new THREE.Scene();
+  const starfield = createStarfield();
+  scene.add(starfield);
   const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.position.set(0, 0, 4);
   scene.add(camera);
@@ -95,6 +172,8 @@ export function createGlobe(canvas) {
     if (autoRotate) {
       globeGroup.rotation.y += 0.03 * dt;
     }
+    starfield.rotation.y += 0.003 * dt;
+    starfield.rotation.x += 0.001 * dt;
   };
 
   const setAutoRotate = (enabled) => {
