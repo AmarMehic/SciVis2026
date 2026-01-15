@@ -18,92 +18,10 @@
       width: 100vw;
       height: 100vh;
     }
-    #wind-info-panel {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(20, 24, 35, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      padding: 16px 20px;
-      color: #e0e0e0;
-      font-size: 14px;
-      min-width: 280px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(10px);
-      display: none;
-      z-index: 1000;
-    }
-    #wind-info-panel.visible {
-      display: block;
-    }
-    #wind-info-panel h3 {
-      margin: 0 0 12px 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #4a90e2;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding-bottom: 8px;
-    }
-    #wind-info-panel .info-row {
-      display: flex;
-      justify-content: space-between;
-      margin: 8px 0;
-      padding: 4px 0;
-    }
-    #wind-info-panel .info-label {
-      color: #999;
-      font-weight: 500;
-    }
-    #wind-info-panel .info-value {
-      color: #fff;
-      font-weight: 600;
-    }
-    #wind-info-panel .speed-indicator {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-    #wind-info-panel .close-btn {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      background: none;
-      border: none;
-      color: #999;
-      font-size: 20px;
-      cursor: pointer;
-      padding: 0;
-      width: 24px;
-      height: 24px;
-      line-height: 24px;
-      text-align: center;
-      border-radius: 4px;
-      transition: all 0.2s;
-    }
-    #wind-info-panel .close-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-    }
   </style>
 </head>
 <body>
   <canvas id="scene"></canvas>
-  <div id="wind-info-panel">
-    <button class="close-btn" id="wind-info-close">×</button>
-    <h3>Wind Data</h3>
-    <div class="info-row">
-      <span class="info-label">Speed:</span>
-      <span class="info-value"><span class="speed-indicator"></span><span id="wind-speed">--</span></span>
-    </div>
-    <div class="info-row">
-      <span class="info-label">Location:</span>
-      <span class="info-value" id="wind-location">--</span>
-    </div>
-  </div>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

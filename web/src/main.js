@@ -117,7 +117,8 @@ let availableWindLevels = null;
 let currentWindLevel = INITIAL_WIND_LEVEL;
 let currentWindData = null;
 let showGlobalStreamlines = true;
-let showInteractiveHitboxes = showGlobalStreamlines;
+let showInteractiveHitboxes = false;
+let showGlyphs = true;
 
 function ensureGlobalStreamlines(data) {
   if (!showGlobalStreamlines) return;
@@ -174,13 +175,14 @@ async function setWindLevel(requestedLevel) {
         animLoop: true,
         setAutoRotate,
         showHitboxes: showInteractiveHitboxes,
-        showGlyphs: false,
+        showGlyphs,
       },
     });
 
     // Keep hitboxes in sync with the grouped toggle
     const iw = components.get('interactiveWind');
     if (iw?.setShowHitboxes) iw.setShowHitboxes(showInteractiveHitboxes);
+    if (iw?.setShowGlyphs) iw.setShowGlyphs(showGlyphs);
 
     control?.setStatus('');
   } catch (err) {
@@ -217,8 +219,18 @@ addComponent('windLegend', createWindLegend, {
 
 addComponent('togglesPanel', createTogglesPanel, {
   options: {
-    position: 'top-right',
+    position: 'top-left',
     items: [
+      {
+        id: 'glyphs',
+        title: 'Wind glyphs',
+        initial: showGlyphs,
+        onChange: (enabled) => {
+          showGlyphs = enabled;
+          const iw = components.get('interactiveWind');
+          if (iw?.setShowGlyphs) iw.setShowGlyphs(enabled);
+        },
+      },
       {
         id: 'global',
         title: 'Global streamlines',
@@ -249,7 +261,7 @@ addComponent('togglesPanel', createTogglesPanel, {
 addComponent('windPassportPanel', createWindPassportPanel, {
   options: {
     position: 'top-right',
-    offsetTop: 120,
+    offsetTop: 20,
     width: 320,
   },
 });

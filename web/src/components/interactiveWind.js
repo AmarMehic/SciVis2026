@@ -177,7 +177,7 @@ export function createInteractiveWind({
   const streamlineSegments = options.streamlineSegments ?? 120; // število segmentov (več za daljši tok)
 
   // Visibility and hitbox options
-  const showGlyphs = options.showGlyphs ?? true; // skrij majhne črtice privzeto
+  let showGlyphs = options.showGlyphs ?? true; // skrij majhne črtice privzeto
   const hitboxRadius = options.hitboxRadius ?? 0.05; // polmer klik hitboxa (svetovne enote)
   const avoidHitboxOverlap = options.avoidHitboxOverlap ?? true; // izogibaj se prekrivanju hitboxov
   const initialShowHitboxes = options.showHitboxes ?? false; // možnost za debug prikaz hitboxov
@@ -192,6 +192,7 @@ export function createInteractiveWind({
   let leafModel = null;
   let hitboxMaterial = null;
   let streamlinePathInfo = [];
+  let glyphLines = null;
 
   // Metadata iz podatkov (time, level)
   const metadata = {
@@ -228,87 +229,6 @@ export function createInteractiveWind({
       }
     }
     return colorStops[colorStops.length - 1].color.clone();
-  }
-
-  // Prikaži info panel z podatki o vetru
-  function showWindInfo(windData) {
-    const panel = document.getElementById('wind-info-panel');
-    if (!panel) return;
-
-    // Posodobi hitrost
-    const speedEl = document.getElementById('wind-speed');
-    if (speedEl) {
-      speedEl.textContent = `${windData.speed.toFixed(2)} m/s`;
-    }
-
-    // Posodobi barvni indikator
-    const indicator = panel.querySelector('.speed-indicator');
-    if (indicator) {
-      const color = windData.color;
-      indicator.style.backgroundColor = `rgb(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)})`;
-    }
-
-    // Posodobi level
-    const levelEl = document.getElementById('wind-level');
-    if (levelEl) {
-      if (metadata.level !== null && metadata.level !== undefined) {
-        levelEl.textContent = `${metadata.level}`;
-      } else {
-        levelEl.textContent = 'N/A';
-      }
-    }
-
-    // Posodobi datum in čas
-    const dateEl = document.getElementById('wind-date');
-    const timeEl = document.getElementById('wind-time');
-    if (metadata.time) {
-      try {
-        const timestamp = new Date(metadata.time);
-        if (!isNaN(timestamp.getTime())) {
-          if (dateEl) {
-            dateEl.textContent = timestamp.toLocaleDateString('en-GB', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric'
-            });
-          }
-          if (timeEl) {
-            timeEl.textContent = timestamp.toLocaleTimeString('en-GB', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit'
-            });
-          }
-        } else {
-          if (dateEl) dateEl.textContent = metadata.time;
-          if (timeEl) timeEl.textContent = '--';
-        }
-      } catch (e) {
-        if (dateEl) dateEl.textContent = metadata.time;
-        if (timeEl) timeEl.textContent = '--';
-      }
-    } else {
-      if (dateEl) dateEl.textContent = 'N/A';
-      if (timeEl) timeEl.textContent = 'N/A';
-    }
-
-    // Posodobi lokacijo
-    const locationEl = document.getElementById('wind-location');
-    if (locationEl) {
-      locationEl.textContent = `${windData.lat.toFixed(2)}°, ${windData.lon.toFixed(2)}°`;
-    }
-
-    // Prikaži panel
-    panel.classList.add('visible');
-  }
-
-  // Skrij info panel
-  function hideWindInfo() {
-    const panel = document.getElementById('wind-info-panel');
-    if (panel) {
-      panel.classList.remove('visible');
-    }
-    stopPassportTracking();
   }
 
   function dispatchPassportEvent(detail) {
@@ -593,6 +513,7 @@ export function createInteractiveWind({
 
     const lines = new THREE.LineSegments(geom, mat);
     lines.visible = !!showGlyphs;
+    glyphLines = lines;
     group.add(lines);
 
     // Dodaj nevidne sfere (večji hitbox) z izogibanjem prekrivanju
@@ -652,38 +573,6 @@ export function createInteractiveWind({
     // Event listener za klik
     renderer.domElement.addEventListener('click', onCanvasClick, false);
 
-    // Event listener za close button v info panelu
-    const closeBtn = document.getElementById('wind-info-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        hideWindInfo();
-        // Odstrani tudi listek in streamline
-        if (selectedLeaf) {
-          leafGroup.remove(selectedLeaf);
-          selectedLeaf.traverse((obj) => {
-            if (obj.geometry) obj.geometry.dispose();
-            if (obj.material) obj.material.dispose();
-          });
-          selectedLeaf = null;
-        }
-        if (selectedStreamline) {
-          leafGroup.remove(selectedStreamline);
-          if (selectedStreamline.geometry) selectedStreamline.geometry.dispose();
-          if (selectedStreamline.material) selectedStreamline.material.dispose();
-          selectedStreamline = null;
-        }
-        leafWindData = null;
-        leafAnimTime = 0;
-        streamlinePoints = [];
-        streamlineCurve = null;
-        streamlinePathInfo = [];
-        stopPassportTracking();
-        // Vklopi nazaj rotacijo
-        if (setAutoRotate) {
-          setAutoRotate(true);
-        }
-      });
-    }
   }
 
   function onCanvasClick(event) {
@@ -788,8 +677,6 @@ export function createInteractiveWind({
 
         startPassportTracking(windData);
 
-        // Prikaži info panel
-        showWindInfo(windData);
       }
     } else {
       console.log('❌ No intersection found - click missed all wind vectors');
@@ -823,23 +710,12 @@ export function createInteractiveWind({
         console.log('▶️ Globe rotation resumed');
       }
 
-      // Skrij info panel
-      hideWindInfo();
       stopPassportTracking();
     }
   }
 
   function dispose() {
     renderer.domElement.removeEventListener('click', onCanvasClick);
-
-    // Odstrani event listener za close button
-    const closeBtn = document.getElementById('wind-info-close');
-    if (closeBtn) {
-      closeBtn.replaceWith(closeBtn.cloneNode(true)); // enostavna metoda za odstranitev vseh listenerjev
-    }
-
-    // Skrij panel
-    hideWindInfo();
 
     if (selectedLeaf) {
       leafGroup.remove(selectedLeaf);
@@ -868,6 +744,7 @@ export function createInteractiveWind({
     leafGroup.clear();
     windPoints.length = 0;
     streamlinePathInfo = [];
+    glyphLines = null;
     stopPassportTracking();
   }
 
@@ -875,6 +752,11 @@ export function createInteractiveWind({
     if (!hitboxMaterial) return;
     hitboxMaterial.opacity = show ? 0.28 : 0.0;
     hitboxMaterial.needsUpdate = true;
+  }
+
+  function setShowGlyphs(show) {
+    showGlyphs = !!show;
+    if (glyphLines) glyphLines.visible = showGlyphs;
   }
 
   function update(dt) {
@@ -948,5 +830,5 @@ export function createInteractiveWind({
     }
   }
 
-  return { group, init, update, dispose, setShowHitboxes };
+  return { group, init, update, dispose, setShowHitboxes, setShowGlyphs };
 }
