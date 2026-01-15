@@ -336,6 +336,86 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Gulf of Mexico", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-97, 18],
+            [-81, 18],
+            [-81, 30],
+            [-97, 30],
+            [-97, 18]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Caribbean Sea", "type": "sea" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-88, 10],
+            [-60, 10],
+            [-60, 22],
+            [-88, 22],
+            [-88, 10]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Great Lakes Region", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-92, 40],
+            [-74, 40],
+            [-74, 50],
+            [-92, 50],
+            [-92, 40]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Patagonia", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-75, -55],
+            [-60, -55],
+            [-60, -40],
+            [-75, -40],
+            [-75, -55]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Indochina Peninsula", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [95, 5],
+            [110, 5],
+            [110, 25],
+            [95, 25],
+            [95, 5]
+          ]
+        ]
+      }
     }
   ]
 }
