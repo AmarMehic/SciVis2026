@@ -54,12 +54,17 @@ export function createWindPassportPanel({ options = {} }) {
   let colorBadgeEl = null;
   let valueTextEl = null;
   let boundEventTarget = null;
+  const rowValueEls = new Map();
 
   function handleWindSelect(event) {
     // The interactive leaf component will eventually emit this event.
     const detail = event?.detail || null;
     if (!detail) {
       renderEmpty(emptyStateCopy);
+      return;
+    }
+    if (detail?.mode === 'live') {
+      updateLive(detail);
       return;
     }
     renderPassport(detail);
@@ -191,6 +196,7 @@ export function createWindPassportPanel({ options = {} }) {
     const locationContext = resolveLocationContext(detail);
 
     listEl.innerHTML = '';
+    rowValueEls.clear();
 
     addRow('Speed', formatSpeed(speed));
     addRow('Location', formatLatLon(lat, lon));
@@ -216,11 +222,29 @@ export function createWindPassportPanel({ options = {} }) {
     updateColorBadge(color);
   }
 
+  function updateLive(detail) {
+    if (!container || !listEl) return;
+    if (!rowValueEls.size) return;
+
+    const speedText = formatSpeed(detail?.speed);
+    const speedEl = rowValueEls.get('Speed');
+    if (speedEl) speedEl.textContent = speedText;
+    if (valueTextEl) valueTextEl.textContent = speedText;
+
+    const locationEl = rowValueEls.get('Location');
+    if (locationEl && Number.isFinite(detail?.lat) && Number.isFinite(detail?.lon)) {
+      locationEl.textContent = formatLatLon(detail.lat, detail.lon);
+    }
+
+    if (detail?.color) updateColorBadge(detail.color);
+  }
+
   function renderEmpty({ title, message }) {
     if (valueTextEl) valueTextEl.textContent = '--';
     if (listEl) listEl.innerHTML = '';
     if (messageEl) messageEl.textContent = message || '';
     updateColorBadge(null);
+    rowValueEls.clear();
 
     // Provide a friendly headline message
     if (listEl) {
@@ -242,6 +266,7 @@ export function createWindPassportPanel({ options = {} }) {
 
     listEl.appendChild(dt);
     listEl.appendChild(dd);
+    rowValueEls.set(label, dd);
   }
 
   function addList(label, items) {
@@ -265,6 +290,7 @@ export function createWindPassportPanel({ options = {} }) {
 
     listEl.appendChild(dt);
     listEl.appendChild(dd);
+    rowValueEls.set(label, dd);
   }
 
   function formatSpeed(speed) {
@@ -347,6 +373,7 @@ export function createWindPassportPanel({ options = {} }) {
     listEl = null;
     messageEl = null;
     boundEventTarget = null;
+    rowValueEls.clear();
   }
 
   return {

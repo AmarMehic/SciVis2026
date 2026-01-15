@@ -21,6 +21,15 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function smoothValue(current, target, dt, tau) {
+  if (!Number.isFinite(target)) return current;
+  if (!Number.isFinite(current)) return target;
+  if (!Number.isFinite(dt) || dt <= 0) return target;
+  if (!Number.isFinite(tau) || tau <= 0) return target;
+  const alpha = 1 - Math.exp(-dt / tau);
+  return lerp(current, target, alpha);
+}
+
 function lerpWrappedLon(lonA, lonB, t) {
   const a = Number.isFinite(lonA) ? lonA : 0;
   const b = Number.isFinite(lonB) ? lonB : a;
@@ -172,6 +181,12 @@ export function createInteractiveWind({
   const leafModelPath = options.leafModelPath ?? '/models/tropical-leaf/source/fs.glb';
   const setAutoRotate = options.setAutoRotate; // funkcija za ustavitev globe rotacije
   const passportEventName = options.passportEventName ?? 'wind:select';
+  const passportSpeedSmoothing = Number.isFinite(options.passportSpeedSmoothing)
+    ? Math.max(0, options.passportSpeedSmoothing)
+    : 0.8;
+  const passportUpdateInterval = Number.isFinite(options.passportUpdateInterval)
+    ? Math.max(0, options.passportUpdateInterval)
+    : 0.2;
 
   // Streamline options
   const streamlineSegments = options.streamlineSegments ?? 120; // število segmentov (več za daljši tok)
@@ -199,6 +214,7 @@ export function createInteractiveWind({
     time: data?.meta?.time ?? null,
     level: data?.meta?.level ?? null,
   };
+  let speedNorm = { p10: 0, p90: 1, denom: 1 };
 
   // Animation state
   let leafAnimTime = 0; // čas animacije
@@ -208,6 +224,7 @@ export function createInteractiveWind({
   const animDuration = options.animDuration ?? 3.0; // trajanje animacije (sekunde)
   const animLoop = options.animLoop ?? true; // ali se animacija ponavlja
   let passportState = null;
+  let passportUpdateCooldown = 0;
 
   // Color mapping
   const colorStops = [
@@ -229,6 +246,10 @@ export function createInteractiveWind({
       }
     }
     return colorStops[colorStops.length - 1].color.clone();
+  }
+
+  function normalizeSpeed(speed) {
+    return clamp01((speed - speedNorm.p10) / speedNorm.denom);
   }
 
   function dispatchPassportEvent(detail) {
@@ -257,15 +278,17 @@ export function createInteractiveWind({
       ? vec3ToLatLon(windData.position)
       : { lat: windData.lat, lon: windData.lon };
     updatePassportLocation(coords.lat, coords.lon, { forceEmit: true });
+    passportUpdateCooldown = passportUpdateInterval;
   }
 
   function stopPassportTracking() {
     passportState = null;
     dispatchPassportEvent(null);
+    passportUpdateCooldown = 0;
   }
 
   function updatePassportLocation(lat, lon, { forceEmit = false } = {}) {
-    if (!passportState) return;
+    if (!passportState) return false;
     passportState.base.lat = lat;
     passportState.base.lon = lon;
     const region = describeRegions(lat, lon);
@@ -282,9 +305,10 @@ export function createInteractiveWind({
       }
     }
     if (changed) emitPassportDetail();
+    return changed;
   }
 
-  function emitPassportDetail() {
+  function emitPassportDetail(extra = {}) {
     if (!passportState) return;
     const region = passportState.lastRegion || {};
     const detail = {
@@ -300,6 +324,9 @@ export function createInteractiveWind({
       narrative: region.narrative,
       landmarks: [...passportState.visited],
     };
+    if (extra && typeof extra === 'object') {
+      Object.assign(detail, extra);
+    }
     dispatchPassportEvent(detail);
   }
 
@@ -433,6 +460,7 @@ export function createInteractiveWind({
     const p10 = percentile(speeds, 10);
     const p90 = percentile(speeds, 90);
     const denom = p90 - p10 || 1;
+    speedNorm = { p10, p90, denom };
     const lenBase = 0.012 * globeRadius;
     const lenRange = 0.028 * globeRadius;
 
@@ -812,7 +840,43 @@ export function createInteractiveWind({
       selectedLeaf.position.add(up.multiplyScalar(bobOffset));
 
       const coords = vec3ToLatLon(selectedLeaf.position);
-      updatePassportLocation(coords.lat, coords.lon);
+      if (passportState) {
+        passportUpdateCooldown = Math.max(0, passportUpdateCooldown - dt);
+        const sampled = interpolateWind(coords.lat, coords.lon);
+        const sampledSpeed = sampled ? Math.hypot(sampled.u, sampled.v) : NaN;
+        const nextSpeed = Number.isFinite(sampledSpeed)
+          ? sampledSpeed
+          : Number.isFinite(leafWindData?.speed)
+          ? leafWindData.speed
+          : passportState.base.speed;
+        const smoothedSpeed = smoothValue(
+          passportState.base.speed,
+          nextSpeed,
+          dt,
+          passportSpeedSmoothing
+        );
+        passportState.base.speed = smoothedSpeed;
+        const nextNorm = Number.isFinite(smoothedSpeed)
+          ? normalizeSpeed(smoothedSpeed)
+          : passportState.base.normalizedSpeed;
+        passportState.base.normalizedSpeed = smoothValue(
+          passportState.base.normalizedSpeed,
+          nextNorm,
+          dt,
+          passportSpeedSmoothing
+        );
+
+        const emitted = updatePassportLocation(coords.lat, coords.lon);
+        if (emitted) {
+          passportUpdateCooldown = passportUpdateInterval;
+        } else if (passportUpdateCooldown <= 0) {
+          emitPassportDetail({ mode: 'live' });
+          passportUpdateCooldown = passportUpdateInterval;
+        }
+      } else {
+        updatePassportLocation(coords.lat, coords.lon);
+        passportUpdateCooldown = 0;
+      }
 
       // Spremeni opacity proti koncu cikla (fade out/in)
       if (!animLoop) {
