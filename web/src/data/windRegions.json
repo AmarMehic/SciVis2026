@@ -224,6 +224,118 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "West Africa", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-20, 0],
+            [10, 0],
+            [10, 20],
+            [-20, 20],
+            [-20, 0]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Sahara Desert", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-15, 15],
+            [35, 15],
+            [35, 32],
+            [-15, 32],
+            [-15, 15]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "East Africa", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [30, -10],
+            [50, -10],
+            [50, 15],
+            [30, 15],
+            [30, -10]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Arabian Peninsula", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [40, 10],
+            [60, 10],
+            [60, 30],
+            [40, 30],
+            [40, 10]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Central Asia", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [60, 35],
+            [90, 35],
+            [90, 55],
+            [60, 55],
+            [60, 35]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Southeast Asia", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [95, 5],
+            [120, 5],
+            [120, 25],
+            [95, 25],
+            [95, 5]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Australia", "type": "land" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [110, -35],
+            [155, -35],
+            [155, -10],
+            [110, -10],
+            [110, -35]
+          ]
+        ]
+      }
     }
   ]
 }
