@@ -64,6 +64,17 @@ function densifySegments(points, speeds, infos, maxAngleRad) {
   return { densePoints, denseSpeeds, denseInfo };
 }
 
+function vec3ToLatLon(vec) {
+  if (!vec) return { lat: NaN, lon: NaN };
+  const normalized = vec.clone().normalize();
+  const phi = Math.acos(clamp(normalized.y, -1, 1));
+  const lat = 90 - THREE.MathUtils.radToDeg(phi);
+  let lon = THREE.MathUtils.radToDeg(Math.atan2(normalized.z, -normalized.x)) - 180;
+  if (lon < -180) lon += 360;
+  if (lon > 180) lon -= 360;
+  return { lat, lon };
+}
+
 // Bilinear interpolation on a regular lat/lon grid.
 function sampleBilinear(lat, lon, lats, lons, U, V) {
   const nLat = lats.length;
@@ -322,7 +333,10 @@ export function createInteractiveWind({
       visitedSet: new Set(),
       lastRegion: null,
     };
-    updatePassportLocation(windData.lat, windData.lon, { forceEmit: true });
+    const coords = windData.position
+      ? vec3ToLatLon(windData.position)
+      : { lat: windData.lat, lon: windData.lon };
+    updatePassportLocation(coords.lat, coords.lon, { forceEmit: true });
   }
 
   function stopPassportTracking() {
@@ -880,21 +894,9 @@ export function createInteractiveWind({
 
       let newPos = null;
       let tangent = null;
-      let currLat = leafWindData.lat;
-      let currLon = leafWindData.lon;
       if (streamlineCurve) {
         newPos = streamlineCurve.getPointAt(t);
         tangent = streamlineCurve.getTangentAt(t);
-        if (streamlinePathInfo.length > 1) {
-          const pathLen = streamlinePathInfo.length - 1;
-          const pathPos = t * pathLen;
-          const idx = Math.floor(pathPos);
-          const localPathT = pathPos - idx;
-          const info1 = streamlinePathInfo[Math.min(idx, pathLen)] ?? streamlinePathInfo[0];
-          const info2 = streamlinePathInfo[Math.min(idx + 1, pathLen)] ?? info1;
-          currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localPathT);
-          currLon = lerpWrappedLon(info1.lon, info2.lon, localPathT);
-        }
       } else {
         // Fallback na linearno interpolacijo, če krivulja ni na voljo
         const pathLength = streamlinePoints.length - 1;
@@ -903,12 +905,8 @@ export function createInteractiveWind({
         const localT = pathPosition - index;
         const p1 = streamlinePoints[Math.min(index, pathLength)];
         const p2 = streamlinePoints[Math.min(index + 1, pathLength)];
-        const info1 = streamlinePathInfo[Math.min(index, streamlinePathInfo.length - 1)] || { lat: leafWindData.lat, lon: leafWindData.lon };
-        const info2 = streamlinePathInfo[Math.min(index + 1, streamlinePathInfo.length - 1)] || info1;
         newPos = new THREE.Vector3().lerpVectors(p1, p2, localT);
         tangent = new THREE.Vector3().subVectors(p2, p1).normalize();
-        currLat = THREE.MathUtils.lerp(info1.lat, info2.lat, localT);
-        currLon = lerpWrappedLon(info1.lon, info2.lon, localT);
       }
 
       // Posodobi pozicijo listka
@@ -931,7 +929,8 @@ export function createInteractiveWind({
       const up = selectedLeaf.position.clone().normalize();
       selectedLeaf.position.add(up.multiplyScalar(bobOffset));
 
-      updatePassportLocation(currLat, currLon);
+      const coords = vec3ToLatLon(selectedLeaf.position);
+      updatePassportLocation(coords.lat, coords.lon);
 
       // Spremeni opacity proti koncu cikla (fade out/in)
       if (!animLoop) {

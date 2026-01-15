@@ -6,6 +6,10 @@
 // CustomEvent('wind:select', { detail: payload }))` from the interactive wind
 // component without having to touch this file again.
 
+import { describeRegions } from '../utils/geoRegions.js';
+
+const REGION_LON_OFFSET = 90;
+
 /**
  * Schema describing what the passport overlay expects to receive. Everything
  * listed below is passed in the custom `wind:select` event:
@@ -182,38 +186,32 @@ export function createWindPassportPanel({ options = {} }) {
   function renderPassport(detail) {
     if (!container || !listEl) return;
 
-    const {
-      lat,
-      lon,
-      speed,
-      level = detail?.level ?? 'n/a',
-      zone,
-      hemisphere,
-      sector,
-      narrative,
-      landmarks,
-      color,
-    } = detail;
+    const { lat, lon, speed, color } = detail;
+    const level = Number.isFinite(detail?.level) ? detail.level : 'n/a';
+    const locationContext = resolveLocationContext(detail);
 
     listEl.innerHTML = '';
 
     addRow('Speed', formatSpeed(speed));
     addRow('Location', formatLatLon(lat, lon));
     addRow('Level', String(level));
-    if (hemisphere || zone) {
-      addRow('Air mass', [hemisphere, zone].filter(Boolean).join(' · '));
+    if (locationContext.hemisphere || locationContext.zone) {
+      addRow(
+        'Air mass',
+        [locationContext.hemisphere, locationContext.zone].filter(Boolean).join(' · ')
+      );
     }
-    if (sector) {
-      addRow('Sector', sector);
+    if (locationContext.sector) {
+      addRow('Sector', locationContext.sector);
     }
 
-    if (Array.isArray(landmarks) && landmarks.length) {
-      addList('Itinerary', landmarks);
+    if (locationContext.itinerary.length) {
+      addList('Itinerary', locationContext.itinerary);
     } else {
       addRow('Itinerary', 'No regions recorded yet');
     }
 
-    messageEl.textContent = narrative || 'Tracing the wind history…';
+    messageEl.textContent = locationContext.narrative || 'Tracing the wind history…';
     if (valueTextEl) valueTextEl.textContent = formatSpeed(speed);
     updateColorBadge(color);
   }
@@ -276,6 +274,46 @@ export function createWindPassportPanel({ options = {} }) {
   function formatLatLon(lat, lon) {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'n/a';
     return `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+  }
+
+  function resolveLocationContext(detail) {
+    const lat = detail?.lat;
+    const lon = detail?.lon;
+    const locationText = formatLatLon(lat, lon);
+    const fallback = {
+      locationText,
+      hemisphere: detail?.hemisphere ?? null,
+      zone: detail?.zone ?? null,
+      sector: detail?.sector ?? null,
+      itinerary: Array.isArray(detail?.landmarks) ? detail.landmarks : [],
+      narrative: typeof detail?.narrative === 'string' ? detail.narrative : '',
+    };
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      return fallback;
+    }
+
+    const regionLon = adjustRegionLongitude(lon);
+    const region = describeRegions(lat, regionLon);
+
+    return {
+      locationText,
+      hemisphere: region?.hemisphere ?? fallback.hemisphere ?? null,
+      zone: region?.zone ?? fallback.zone ?? null,
+      sector: region?.sector ?? fallback.sector ?? null,
+      itinerary: Array.isArray(region?.landmarks) && region.landmarks.length
+        ? region.landmarks
+        : fallback.itinerary,
+      narrative: region?.narrative || fallback.narrative || '',
+    };
+  }
+
+  function adjustRegionLongitude(lon, offset = REGION_LON_OFFSET) {
+    if (!Number.isFinite(lon)) return lon;
+    let value = lon - offset;
+    while (value < -180) value += 360;
+    while (value > 180) value -= 360;
+    return value;
   }
 
   function updateColorBadge(hex) {
