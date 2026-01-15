@@ -21,6 +21,12 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
+function normalizeVec3(vec) {
+  const len = vec.length();
+  if (!Number.isFinite(len) || len === 0) return null;
+  return vec.multiplyScalar(1 / len);
+}
+
 function smoothValue(current, target, dt, tau) {
   if (!Number.isFinite(target)) return current;
   if (!Number.isFinite(current)) return target;
@@ -208,6 +214,12 @@ export function createInteractiveWind({
   let hitboxMaterial = null;
   let streamlinePathInfo = [];
   let glyphLines = null;
+  const orientNormal = new THREE.Vector3();
+  const orientForward = new THREE.Vector3();
+  const orientRight = new THREE.Vector3();
+  const orientMat = new THREE.Matrix4();
+  const worldUp = new THREE.Vector3(0, 1, 0);
+  const worldRight = new THREE.Vector3(1, 0, 0);
 
   // Metadata iz podatkov (time, level)
   const metadata = {
@@ -250,6 +262,36 @@ export function createInteractiveWind({
 
   function normalizeSpeed(speed) {
     return clamp01((speed - speedNorm.p10) / speedNorm.denom);
+  }
+
+  function orientLeafToWind(leaf, position, direction) {
+    if (!leaf || !position || !direction) return;
+
+    orientNormal.copy(position);
+    if (!normalizeVec3(orientNormal)) return;
+
+    orientForward.copy(direction);
+    if (!Number.isFinite(orientForward.x) ||
+        !Number.isFinite(orientForward.y) ||
+        !Number.isFinite(orientForward.z)) {
+      return;
+    }
+
+    // Project the wind direction onto the tangent plane so the leaf sits flat.
+    orientForward.addScaledVector(orientNormal, -orientForward.dot(orientNormal));
+    if (!normalizeVec3(orientForward)) {
+      orientForward.copy(worldUp).cross(orientNormal);
+      if (!normalizeVec3(orientForward)) {
+        orientForward.copy(worldRight).cross(orientNormal);
+        if (!normalizeVec3(orientForward)) return;
+      }
+    }
+
+    orientRight.crossVectors(orientForward, orientNormal);
+    if (!normalizeVec3(orientRight)) return;
+
+    orientMat.makeBasis(orientRight, orientForward, orientNormal);
+    leaf.quaternion.setFromRotationMatrix(orientMat);
   }
 
   function dispatchPassportEvent(detail) {
@@ -427,9 +469,11 @@ export function createInteractiveWind({
       transparent: true,
       opacity: 0.8,
       depthTest: true,
+      depthWrite: false,
     });
 
     const line = new THREE.Mesh(tube, mat);
+    line.renderOrder = 900;
 
     return { line, points: densePoints, curve, speeds: denseSpeedNorms, pathInfo: denseInfo };
   }
@@ -675,7 +719,7 @@ export function createInteractiveWind({
 
         // Make it more visible for debugging
         selectedLeaf.visible = true;
-        selectedLeaf.renderOrder = 999; // render on top
+        selectedLeaf.renderOrder = 1100; // render on top
 
         // Shrani podatke za animacijo
         leafWindData = windData;
@@ -683,9 +727,8 @@ export function createInteractiveWind({
 
         console.log('🎬 Starting leaf animation (duration: ' + animDuration + 's, loop: ' + animLoop + ')');
 
-        // Orientiraj listek v smeri vetra
-        const target = windData.position.clone().add(windData.direction);
-        selectedLeaf.lookAt(target);
+        // Orientiraj listek v smeri vetra, sploščen na tangentno ravnino
+        orientLeafToWind(selectedLeaf, windData.position, windData.direction);
 
         // Obarvaj listek glede na hitrost
         selectedLeaf.traverse((child) => {
@@ -698,6 +741,7 @@ export function createInteractiveWind({
             child.material.side = THREE.DoubleSide; // visible from both sides
             child.material.needsUpdate = true;
             child.visible = true;
+            child.renderOrder = 1100;
           }
         });
 
@@ -823,14 +867,16 @@ export function createInteractiveWind({
       selectedLeaf.position.copy(newPos);
 
       // Orientiraj listek v smeri gibanja (tangenta streamline-a)
-      if (tangent && tangent.lengthSq() > 0.001) {
-        const lookAtTarget = newPos.clone().add(tangent);
-        selectedLeaf.lookAt(lookAtTarget);
+      const orientDir =
+        tangent && tangent.lengthSq() > 0.001 ? tangent : leafWindData?.direction;
+      if (orientDir) {
+        orientLeafToWind(selectedLeaf, selectedLeaf.position, orientDir);
       }
 
       // Dodaj majhno vrtenje za dinamičnost (listek se vrti medtem ko potuje)
       const rotationSpeed = 2.0;
-      selectedLeaf.rotation.z += Math.sin(leafAnimTime * rotationSpeed * leafWindData.normalizedSpeed) * 0.01;
+      const flutter = Math.sin(leafAnimTime * rotationSpeed * leafWindData.normalizedSpeed) * 0.01;
+      selectedLeaf.rotateZ(flutter);
 
       // Dodaj majhno vertikalno nihanje (kot bi listek "plaval" v vetru)
       const bobSpeed = 3.0;

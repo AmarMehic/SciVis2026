@@ -59,7 +59,7 @@ async function loadWindLevelsManifest() {
   if (!res.ok) {
     throw new Error(
       `Failed to load wind levels manifest: ${res.status} ${res.statusText} (${url})\n` +
-        `Response (first 200 chars): ${text.slice(0, 200)}`
+      `Response (first 200 chars): ${text.slice(0, 200)}`
     );
   }
   try {
@@ -72,7 +72,7 @@ async function loadWindLevelsManifest() {
   } catch {
     throw new Error(
       `Invalid JSON for wind levels manifest (${url})\n` +
-        `Response (first 200 chars): ${text.slice(0, 200)}`
+      `Response (first 200 chars): ${text.slice(0, 200)}`
     );
   }
 }
@@ -99,7 +99,7 @@ async function loadWindLevel(level) {
   if (!res.ok) {
     throw new Error(
       `Failed to load wind level ${level}: ${res.status} ${res.statusText} (${url})\n` +
-        `Response (first 200 chars): ${text.slice(0, 200)}`
+      `Response (first 200 chars): ${text.slice(0, 200)}`
     );
   }
 
@@ -108,7 +108,7 @@ async function loadWindLevel(level) {
   } catch (e) {
     throw new Error(
       `Invalid JSON for wind level ${level} (${url})\n` +
-        `Response (first 200 chars): ${text.slice(0, 200)}`
+      `Response (first 200 chars): ${text.slice(0, 200)}`
     );
   }
 }
@@ -170,7 +170,7 @@ async function setWindLevel(requestedLevel) {
         jitter: 0.35,
         speedThreshold: 1.5,
         opacity: 0.9,
-        leafScale: 1.5,
+        leafScale: 2.5,
         animDuration: 10.0,
         animLoop: true,
         setAutoRotate,
